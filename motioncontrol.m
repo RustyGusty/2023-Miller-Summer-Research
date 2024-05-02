@@ -3137,8 +3137,6 @@ set(handles.reseta,'Enable','off'); % Disable reset rotation
 set(handles.settemp,'Enable','off'); % Disable set temperature
 stop(handles.tmr); % Stop timer
 
-hpos = str2double(get(handles.scanstarth,'String')); % Read start horizontal scan from screen
-vpos = str2double(get(handles.scanstartv,'String')); % Read start vertical scan from screen
 dpos = str2double(get(handles.scanstartd,'String')); % Read start stage scan from screen
 hstep = str2double(get(handles.scansteph,'String')); % Read horizontal step size from screen
 if isempty(hstep) == 1 % If horizontal step size is empty
