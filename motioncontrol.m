@@ -1,4 +1,4 @@
-function varargout = motioncontrol(varargin)
+function varargout = motioncontrol_Daniel(varargin)
 % MOTIONCONTROL M-file for motioncontrol.fig
 %      MOTIONCONTROL, by itself, creates a new MOTIONCONTROL or raises the
 %      existing
@@ -24,7 +24,7 @@ function varargout = motioncontrol(varargin)
 
 % Edit the above text to modify the response to help motioncontrol
 
-% Last Modified by GUIDE v2.5 16-Mar-2015 13:58:23
+% Last Modified by GUIDE v2.5 09-May-2024 17:32:52
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -67,7 +67,7 @@ if (handles.ccd.IsConnected()) % Check if the connection was established
         if (~isOperationSuccessful)
             set(handles.messages,'String',char(errorMessage));
         end
-
+        
         [exptime,isOperationSuccessful, errorMessage] = handles.ccd.GetExposureTime();  % Get the exposure time of the CCD (reconfirming the previous command worked O.K.
         if (~isOperationSuccessful)
         else
@@ -145,50 +145,57 @@ if (handles.ccd.IsConnected()) % Check if the connection was established
         end
     end
 else
-    set(handles.messages,'String','Failed to establish connection Nita with the server!');
-    uiwait(warndlg('Failed to establish connection with Nita the server!','CCD Warning','modal'));
+    set(handles.messages,'String','Failed to establish connection with the server!');
+    uiwait(warndlg('Failed to establish connection with the server!','CCD Warning','modal'));
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%% Delay Stage Init %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 handles.computeripdelaystage = '192.168.0.100'; % Set server computer IP or URL
-% createClassFromWsdl(['http://' handles.computeripdelaystage ':8001/PIDelayStageWindowsService?wsdl']);
-% handles.PIServer = PIDelayStageServiceProvider;
-% 
-% if str2double(NumberOfAttachedStages(handles.PIServer)) < 1
-%     uiwait(warndlg('No stages connected','Delay Stage Warning','modal'));
-% else
-%     GetStagePosition(handles.PIServer, 1);
-% 
-%     areAllStagesInitialized(handles.PIServer);
-%     set(handles.directiond,'Enable','off');
-% 
-%     posum = num2str(round(str2double(GetStagePosition(handles.PIServer,1))*1000));
-%     set(handles.positiond,'String',posum); % Show delay stage position on screen
-% 
-%     velums = num2str(round(str2double(GetStageVelocity(handles.PIServer,1))*1000));
-%     set(handles.velocd,'String',velums); % Show delay stage velocity on screen
-% 
-%     accelums2 = num2str(round(str2double(GetStageAcceleration(handles.PIServer,1))*1000));
-%     set(handles.acced,'String',accelums2); % Show delay stage acceleration on screen
-% end
+createClassFromWsdl(['http://' handles.computeripdelaystage ':8001/PIDelayStageWindowsService?wsdl']);
+handles.PIServer = PIDelayStageServiceProvider;
+
+if str2double(NumberOfAttachedStages(handles.PIServer)) < 1
+    uiwait(warndlg('No stages connected','Delay Stage Warning','modal'));
+else
+    GetStagePosition(handles.PIServer, 1);
+
+    areAllStagesInitialized(handles.PIServer);
+    set(handles.directiond,'Enable','off');
+
+    posum = num2str(round(str2double(GetStagePosition(handles.PIServer,1))*1000));
+    set(handles.positiond,'String',posum); % Show delay stage position on screen
+
+    velums = num2str(round(str2double(GetStageVelocity(handles.PIServer,1))*1000));
+    set(handles.velocd,'String',velums); % Show delay stage velocity on screen
+
+    accelums2 = num2str(round(str2double(GetStageAcceleration(handles.PIServer,1))*1000));
+    set(handles.acced,'String',accelums2); % Show delay stage acceleration on screen
+end
 
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%% Shutters and NIDAQ Init %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 handles.computeripshutter = '192.168.0.100'; % Set server computer IP or URL
-% createClassFromWsdl(['http://' handles.computeripshutter ':8003/VMMD3WindowsService?wsdl']);
-%handles.UniblitzServer = VMMD3ServiceProvider ;
-% 
+createClassFromWsdl(['http://' handles.computeripshutter ':8003/VMMD3WindowsService?wsdl']);
+handles.UniblitzServer = VMMD3ServiceProvider ;
+
+% turning off manual control of shutter indicators, they will enable and
+% disable automatically when they are toggled using the buttons in the
+% toolbar
+set(handles.shutterindic1, 'Enable', 'off');
+set(handles.shutterindic2, 'Enable', 'off');
+
+% NO LONGER USING DAQ
 % handles.computeripNIDAQ = '192.168.0.100'; % Set server computer IP or URL
 % handles.portni = 29000; % Set server port
 % msg = {'GETVERSION'};
-% 
+
 % [handles.answer handles.input_socketni] = NIDAQ(handles.computeripNIDAQ,handles.portni,msg); % Send the commands
 % answerinit = strrep(strrep(char(handles.answer),char(13),''),char(10),'');
-% 
-% if strcmp(answerinit,'Server not running or Nita1 network problem') == 1
+
+% if strcmp(answerinit,'NIDAQ Server not running or network problem') == 1
 %     uiwait(warndlg(answerinit,'NIDAQ Warning','modal'));
 %     handles.NIDAQ = 0;
 % else
@@ -218,216 +225,230 @@ handles.computeripshutter = '192.168.0.100'; % Set server computer IP or URL
 %     end
 % 
 % end
-% 
-% if strcmp('true',IsControllerAccessible(handles.UniblitzServer))
-%     [isOperationSuccessful,errorMessage] = CloseShutter(handles.UniblitzServer,1); %Close shutter 1
-%     [isOperationSuccessful,errorMessage] = CloseShutter(handles.UniblitzServer,2); %Close shutter 2
-% else
-%     set(handles.openshutter1,'Enable','off')
-%     set(handles.closeshutter1,'Enable','off')
-%     set(handles.openshutter2,'Enable','off')
-%     set(handles.closeshutter2,'Enable','off')    
-% end
-% 
+
+
+if strcmp('true',IsControllerAccessible(handles.UniblitzServer))
+    [isOperationSuccessful,errorMessage] = CloseShutter(handles.UniblitzServer,1); %Close shutter 1
+    % error dialog box if the shutter closing was unsuccessful
+    if ~(isOperationSuccessful)
+        errorMessage = append('Shutter 1 unable to close. <', errorMessage, '>')
+        uiwait(warndlg(errorMessage, 'Shutter Warning', 'modal'))
+    end
+    [isOperationSuccessful,errorMessage] = CloseShutter(handles.UniblitzServer,2); %Close shutter 2
+    % error dialog box if the shutter closing was unsuccessful
+    if ~(isOperationSuccessful)
+        errorMessage = append('Shutter 2 unable to close. <', errorMessage, '>')
+        uiwait(warndlg(errorMessage, 'Shutter Warning', 'modal'))
+    end
+else
+    uiwait(warndlg('Uniblitz controller inaccessible', 'Shutter Warning', 'modal'))
+    set(handles.openshutter1,'Enable','off')
+    set(handles.closeshutter1,'Enable','off')
+    set(handles.openshutter2,'Enable','off')
+    set(handles.closeshutter2,'Enable','off')    
+end
+
+% NO LONGER CHECKING THE STATUS OF SHUTTERS
 % if ~isempty(answer)
 %     checkstatus_Callback([], [], handles)% Check status of shutters
 % end
 
 
 
-% % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% % 
-% % %%%% PP-30 Init %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% % 
-% % set(handles.directionv,'Enable','off');  % Disable direction control
-% % set(handles.directionh,'Enable','off');  % Disable direction control
-% % handles.computerip30 = '192.168.0.100'; % Set server computer IP or URL
-% % handles.port30 = 25000; % Set server port
-% % 
-% % set(handles.goh,'Enable','off');
-% % set(handles.killh,'Enable','off');
-% % set(handles.homeh,'Enable','off');
-% % set(handles.reseth,'Enable','off');
-% % set(handles.gov,'Enable','off');
-% % set(handles.killv,'Enable','off');
-% % set(handles.homev,'Enable','off');
-% % set(handles.resetv,'Enable','off');
-% % 
-% % msg = {'NUMBEROFDEVICES'}; % Creates a command to check number of plugged motors
-% % [answer handles.input_socket30] = pp30(handles.computerip30,handles.port30,msg); % Check number of plugged motors
-% % 
-% % if str2double(answer) == 0
-% %     handles.numberpp30 = str2double(char(answer));
-% %     uiwait(warndlg('No PP-30 connected','PP-30 Warning','modal'));
-% %     msg = {'QUIT'}; % Creates a command to quit the server communication
-% %     [answer handles.input_socket30] = pp30(handles.computerip30,handles.port30,msg,handles.input_socket30); %Quit the communication
-% % 
-% % elseif str2double(answer) <= 2 && str2double(answer) >= 1
-% %     handles.handarray = [];
-% %     handles.numberpp30 = str2double(answer);
-% %     for i = 1:handles.numberpp30 % Loop for the number of motors
-% %         msg = {['OPEN ' num2str(i)]}; % Open communication with motors
-% %         [answer handles.input_socket30] = pp30(handles.computerip30,handles.port30,msg,handles.input_socket30); % Send the commands
-% %         hand = answer{1};
-% %         handles.handarray = [handles.handarray; hand(1:end-2)]; % Generates an array of handles of the motors
-% %     end
-% % 
-% %     sarray = size(handles.handarray);
-% %     if sarray(1) == 1
-% %         harray = handles.handarray;
-% %         msg = {['SENDRCV ' harray ' DN']}; % Creates a command to get serial numbers
-% %         [answer handles.input_socket30] = pp30(handles.computerip30,handles.port30,msg,handles.input_socket30); % Send the commands
-% %         serialno = char(answer);
-% %         if strcmp(regexprep(serialno,'\r\n',''),'EX01') == 1
-% %             uiwait(warndlg('Just the horizontal stage is connected','PP-30 Warning','modal'));
-% %         else
-% %             uiwait(warndlg('Just the vertical stage is connected','PP-30 Warning','modal'));
-% %         end
-% %     end
-% % 
-% %     
-% %     for i = 1:handles.numberpp30 % Loop for the number of motors
-% %         msg = {['SENDRCV ' handles.handarray(i,:) ' DN']}; % Creates a command to get serial numbers
-% %         [answer handles.input_socket30] = pp30(handles.computerip30,handles.port30,msg,handles.input_socket30); % Send the commands
-% %         serialno = char(answer);
-% %         
-% %         command1 = ['SENDRCV ' handles.handarray(i,:) ' HSPD=2000']; % Creates a command to set max velocity to 2000 counts/s
-% %         command2 = ['SENDRCV ' handles.handarray(i,:) ' ACC=300']; % Creates a command to set acceleration to 300 counts/s^2
-% %         command3 = ['SENDRCV ' handles.handarray(i,:) ' SL=1']; % Creates a command to set StepNloop (close loop) configuration
-% %         command4 = ['SENDRCV ' handles.handarray(i,:) ' SLA=100']; % Creates a command to set maximum number of attempts
-% %         if strcmp(regexprep(serialno,'\r\n',''),'EX01') == 1
-% %             command5 = ['SENDRCV ' handles.handarray(i,:) ' SLR=28.604']; % Creates a command to set StepNloop ratio (taken from calibration program)
-% %         else
-% %             command5 = ['SENDRCV ' handles.handarray(i,:) ' SLR=35.480']; % Creates a command to set StepNloop ratio (taken from calibration program)
-% %         end
-% %         command6 = ['SENDRCV ' handles.handarray(i,:) ' SLT=20']; % Creates a command to set the maximum tolerance (difference between target and final position)
-% %         command7 = ['SENDRCV ' handles.handarray(i,:) ' SLE=20000']; % Creates a command to set the maximum error. Beyond that not correction is attempted
-% %         command8 = ['SENDRCV ' handles.handarray(i,:) ' POL=530']; % Creates a command to set polarity (see manual)
-% %         command9 = ['SENDRCV ' handles.handarray(i,:) ' HSPD']; % Creates a command to read maximum velocity
-% %         command10 = ['SENDRCV ' handles.handarray(i,:) ' ACC']; % Creates a command to read acceleration
-% %         command11 = ['SENDRCV ' handles.handarray(i,:) ' EX']; % Creates a command to read position
-% % 
-% %         msg = {command1,command2,command3,command4,command5,command6,command7,command8,command9,command10,command11}; % Concatenates the command
-% %         [answer handles.input_socket30] = pp30(handles.computerip30,handles.port30,msg,handles.input_socket30); % Send the commands
-% % 
-% %         if strcmp(regexprep(serialno,'\r\n',''),'EX01') == 1
-% %             velum = num2str(str2double(answer{9})/20,'%5.0f'); % Convert answer{10} to um/s and assign to velnum
-% %             set(handles.veloch,'String',velum); % Set velocity in panel
-% % 
-% %             accelum = num2str(str2double(answer{10})/20,'%5.0f'); % Convert answer{11} to um/s^2 and assign to accelnum
-% %             set(handles.acceh,'String',accelum); % Set acceleration in panel
-% % 
-% %             posum = num2str(str2double(answer{11})/20,'%5.0f'); % Convert answer{12} to um and assign to posum
-% %             set(handles.positionh,'String',posum); % Set horizontal position in panel
-% %             set(handles.scanstarth,'String',posum); % Set horizontal start scan position in panel
-% %             set(handles.scansteph,'String','1'); % Set horizontal step size in panel
-% %             set(handles.nsteph,'String','1'); % Set number of horizontal steps in panel
-% %             set(handles.goh,'Enable','on');
-% %             set(handles.killh,'Enable','on');
-% %             set(handles.homeh,'Enable','on');
-% %             set(handles.reseth,'Enable','on');
-% % 
-% %         else
-% %             velum = num2str(str2double(answer{9})/20,'%5.0f'); % Convert answer{10} to um/s and assign to velnum
-% %             set(handles.velocv,'String',velum); % Set velocity in panel
-% % 
-% %             accelum = num2str(str2double(answer{10})/20,'%5.0f'); % Convert answer{11} to um/s^2 and assign to accelnum
-% %             set(handles.accev,'String',accelum); % Set acceleration in panel
-% % 
-% %             posum = num2str(str2double(answer{11})/20,'%5.0f'); % Convert answer{12} to um and assign to posum
-% %             set(handles.positionv,'String',posum); % Set vertical position in panel
-% %             set(handles.scanstartv,'String',posum); % Set vertical start scan position in panel
-% %             set(handles.scanstepv,'String','1'); % Set vertical step size in panel
-% %             set(handles.nstepv,'String','1'); % Set number of vertical steps in panel
-% %             set(handles.gov,'Enable','on');
-% %             set(handles.killv,'Enable','on');
-% %             set(handles.homev,'Enable','on');
-% %             set(handles.resetv,'Enable','on');
-% %         end
-% % 
-% %     end
-% %         
-% % else
-% %         uiwait(warndlg(char(answer),'PP-30 Warning','modal'));
-% %         handles.numberpp30 = 0;
-% % end
-% %     
-% % set(handles.numberscans,'String','1'); % Set number of scans in panel 
-% %     
-% % 
-% % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% %     
-% % %%%%% RS-40 Init %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% %     
-% % set(handles.directiona,'Enable','off');  % Disable direction control
-% % handles.computerip40 = '192.168.0.100'; % Set server computer IP or URL
-% % handles.port40 = 26000; % Set server port
-% % handles.commport = '8';
-% % numberofmotors = 1;
-% % handles.axis = '1';
-% % handles.limitangle = 5; % Max limit angle
-% % set(handles.goa,'Enable','off');
-% % set(handles.killa,'Enable','off');
-% % set(handles.homea,'Enable','off');
-% % set(handles.reseta,'Enable','off');
-% % handles.numberrs40 = 0;
-% % 
-% % msg = {['INIT ' handles.commport ' ' num2str(numberofmotors)]}; % Creates a command to initialize
-% % [answer handles.input_socket40] = rs40(handles.computerip40,handles.port40,msg); % Send the command
-% % answerinit = strrep(strrep(char(answer),char(13),''),char(10),'');
-% % 
-% % if strcmp(answerinit,'Server not running or Nita network problem') == 1
-% %     uiwait(warndlg(answerinit,'RS-40 Warning','modal'));
-% % elseif strcmp(answerinit,'Initialized successfully') == 1
-% %     msg = {'OPEN'}; % Creates a command to open communication
-% %     [answer handles.input_socket40] = rs40(handles.computerip40,handles.port40,msg,handles.input_socket40); % Open communication
-% %     answeropen = strrep(strrep(char(answer),char(13),''),char(10),'');
-% % 
-% %     if isempty(answeropen)
-% %         uiwait(warndlg('RS-40 not connected','RS-40 Warning','modal'));
-% %         msg = {'QUIT'}; % Creates a command to quit the server communication
-% %         [answer handles.input_socket40] = rs40(handles.computerip40,handles.port40,msg,handles.input_socket40); %Quit the communication
-% %     elseif strcmp(answeropen,'Unable to open controller!')
-% %         uiwait(warndlg(answeropen,'RS-40 Warning','modal'));
-% %         msg = {'QUIT'}; % Creates a command to quit the server communication
-% %         [answer handles.input_socket40] = rs40(handles.computerip40,handles.port40,msg,handles.input_socket40); %Quit the communication
-% %     else
-% %         for i = 1:numberofmotors % Loop for the number of motors
-% %             msg = {['EXECUTE ' num2str(i) ' getserialno']}; % Creates a command to read motor id String
-% %             [answer handles.input_socket40] = rs40(handles.computerip40,handles.port40,msg,handles.input_socket40); % Read motor id String
-% %             pause(0.5)
-% %             [answer handles.input_socket40] = rs40(handles.computerip40,handles.port40,msg,handles.input_socket40); % Read motor id String
-% %         end
-% % 
-% %         command1 = 'SETVEL 1 7.0'; % Creates a command to set max velocity to 10 mm/s
-% %         command2 = 'SETACCEL 1 3.0'; % Creates a command to set acceleration to 3 mm/s^2
-% %         command3 = 'GETVEL 1'; % Creates a command to read maximum velocity
-% %         command4 = 'GETACCEL 1'; % Creates a command to read acceleration
-% %         command5 = 'GETPOS 1'; % Creates a command to read positin
-% % 
-% %         msg = {command1,command2,command3,command4,command5}; % Concatenates the command
-% %         [answer handles.input_socket40] = rs40(handles.computerip40,handles.port40,msg,handles.input_socket40); % Send the commands
-% % 
-% %         velum = regexprep(answer{3},'\n',''); % Convert answer{3} to um/s and assign to velnum
-% %         set(handles.veloca,'string',velum); % Set velocity in panel
-% % 
-% %         accelum = regexprep(answer{4},'\n',''); % Convert answer{4} to um/s^2 and assign to accelnum
-% %         set(handles.accea,'string',accelum); % Set acceleration in panel
-% % 
-% %         posum = answer{5}; % Convert answer{5} to um and assign to posum
-% %         set(handles.positiona,'String',posum); % Set position in panel
-% % 
-% %         set(handles.goa,'Enable','on');
-% %         set(handles.killa,'Enable','on');
-% %         set(handles.homea,'Enable','on');
-% %         set(handles.reseta,'Enable','on');
-% %         handles.numberrs40 = 1;
-% %     end
-% % else
-% % end
-% % 
-% % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% % 
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 
+% %%%% PP-30 Init %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 
+% DISABLING VERTICAL SAMPLE CONTROL
+set(handles.directionv,'Enable','off');  % Disable direction control
+set(handles.directionh,'Enable','off');  % Disable direction control
+handles.computerip30 = '192.168.0.100'; % Set server computer IP or URL
+handles.port30 = 25000; % Set server port
+
+set(handles.goh,'Enable','off');
+set(handles.killh,'Enable','off');
+set(handles.homeh,'Enable','off');
+set(handles.reseth,'Enable','off');
+set(handles.gov,'Enable','off');
+set(handles.killv,'Enable','off');
+set(handles.homev,'Enable','off');
+set(handles.resetv,'Enable','off');
+
+% msg = {'NUMBEROFDEVICES'}; % Creates a command to check number of plugged motors
+% [answer handles.input_socket30] = pp30(handles.computerip30,handles.port30,msg); % Check number of plugged motors
+% 
+% if str2double(answer) == 0
+%     handles.numberpp30 = str2double(char(answer));
+%     uiwait(warndlg('No PP-30 connected','PP-30 Warning','modal'));
+%     msg = {'QUIT'}; % Creates a command to quit the server communication
+%     [answer handles.input_socket30] = pp30(handles.computerip30,handles.port30,msg,handles.input_socket30); %Quit the communication
+% 
+% elseif str2double(answer) <= 2 && str2double(answer) >= 1
+%     handles.handarray = [];
+%     handles.numberpp30 = str2double(answer);
+%     for i = 1:handles.numberpp30 % Loop for the number of motors
+%         msg = {['OPEN ' num2str(i)]}; % Open communication with motors
+%         [answer handles.input_socket30] = pp30(handles.computerip30,handles.port30,msg,handles.input_socket30); % Send the commands
+%         hand = answer{1};
+%         handles.handarray = [handles.handarray; hand(1:end-2)]; % Generates an array of handles of the motors
+%     end
+% 
+%     sarray = size(handles.handarray);
+%     if sarray(1) == 1
+%         harray = handles.handarray;
+%         msg = {['SENDRCV ' harray ' DN']}; % Creates a command to get serial numbers
+%         [answer handles.input_socket30] = pp30(handles.computerip30,handles.port30,msg,handles.input_socket30); % Send the commands
+%         serialno = char(answer);
+%         if strcmp(regexprep(serialno,'\r\n',''),'EX01') == 1
+%             uiwait(warndlg('Just the horizontal stage is connected','PP-30 Warning','modal'));
+%         else
+%             uiwait(warndlg('Just the vertical stage is connected','PP-30 Warning','modal'));
+%         end
+%     end
+% 
+%     
+%     for i = 1:handles.numberpp30 % Loop for the number of motors
+%         msg = {['SENDRCV ' handles.handarray(i,:) ' DN']}; % Creates a command to get serial numbers
+%         [answer handles.input_socket30] = pp30(handles.computerip30,handles.port30,msg,handles.input_socket30); % Send the commands
+%         serialno = char(answer);
+%         
+%         command1 = ['SENDRCV ' handles.handarray(i,:) ' HSPD=2000']; % Creates a command to set max velocity to 2000 counts/s
+%         command2 = ['SENDRCV ' handles.handarray(i,:) ' ACC=300']; % Creates a command to set acceleration to 300 counts/s^2
+%         command3 = ['SENDRCV ' handles.handarray(i,:) ' SL=1']; % Creates a command to set StepNloop (close loop) configuration
+%         command4 = ['SENDRCV ' handles.handarray(i,:) ' SLA=100']; % Creates a command to set maximum number of attempts
+%         if strcmp(regexprep(serialno,'\r\n',''),'EX01') == 1
+%             command5 = ['SENDRCV ' handles.handarray(i,:) ' SLR=28.604']; % Creates a command to set StepNloop ratio (taken from calibration program)
+%         else
+%             command5 = ['SENDRCV ' handles.handarray(i,:) ' SLR=35.480']; % Creates a command to set StepNloop ratio (taken from calibration program)
+%         end
+%         command6 = ['SENDRCV ' handles.handarray(i,:) ' SLT=20']; % Creates a command to set the maximum tolerance (difference between target and final position)
+%         command7 = ['SENDRCV ' handles.handarray(i,:) ' SLE=20000']; % Creates a command to set the maximum error. Beyond that not correction is attempted
+%         command8 = ['SENDRCV ' handles.handarray(i,:) ' POL=530']; % Creates a command to set polarity (see manual)
+%         command9 = ['SENDRCV ' handles.handarray(i,:) ' HSPD']; % Creates a command to read maximum velocity
+%         command10 = ['SENDRCV ' handles.handarray(i,:) ' ACC']; % Creates a command to read acceleration
+%         command11 = ['SENDRCV ' handles.handarray(i,:) ' EX']; % Creates a command to read position
+% 
+%         msg = {command1,command2,command3,command4,command5,command6,command7,command8,command9,command10,command11}; % Concatenates the command
+%         [answer handles.input_socket30] = pp30(handles.computerip30,handles.port30,msg,handles.input_socket30); % Send the commands
+% 
+%         if strcmp(regexprep(serialno,'\r\n',''),'EX01') == 1
+%             velum = num2str(str2double(answer{9})/20,'%5.0f'); % Convert answer{10} to um/s and assign to velnum
+%             set(handles.veloch,'String',velum); % Set velocity in panel
+% 
+%             accelum = num2str(str2double(answer{10})/20,'%5.0f'); % Convert answer{11} to um/s^2 and assign to accelnum
+%             set(handles.acceh,'String',accelum); % Set acceleration in panel
+% 
+%             posum = num2str(str2double(answer{11})/20,'%5.0f'); % Convert answer{12} to um and assign to posum
+%             set(handles.positionh,'String',posum); % Set horizontal position in panel
+%             set(handles.scanstarth,'String',posum); % Set horizontal start scan position in panel
+%             set(handles.scansteph,'String','1'); % Set horizontal step size in panel
+%             set(handles.nsteph,'String','1'); % Set number of horizontal steps in panel
+%             set(handles.goh,'Enable','on');
+%             set(handles.killh,'Enable','on');
+%             set(handles.homeh,'Enable','on');
+%             set(handles.reseth,'Enable','on');
+% 
+%         else
+%             velum = num2str(str2double(answer{9})/20,'%5.0f'); % Convert answer{10} to um/s and assign to velnum
+%             set(handles.velocv,'String',velum); % Set velocity in panel
+% 
+%             accelum = num2str(str2double(answer{10})/20,'%5.0f'); % Convert answer{11} to um/s^2 and assign to accelnum
+%             set(handles.accev,'String',accelum); % Set acceleration in panel
+% 
+%             posum = num2str(str2double(answer{11})/20,'%5.0f'); % Convert answer{12} to um and assign to posum
+%             set(handles.positionv,'String',posum); % Set vertical position in panel
+%             set(handles.scanstartv,'String',posum); % Set vertical start scan position in panel
+%             set(handles.scanstepv,'String','1'); % Set vertical step size in panel
+%             set(handles.nstepv,'String','1'); % Set number of vertical steps in panel
+%             set(handles.gov,'Enable','on');
+%             set(handles.killv,'Enable','on');
+%             set(handles.homev,'Enable','on');
+%             set(handles.resetv,'Enable','on');
+%         end
+% 
+%     end
+%         
+% else
+%         uiwait(warndlg(char(answer),'PP-30 Warning','modal'));
+%         handles.numberpp30 = 0;
+% end
+%     
+% set(handles.numberscans,'String','1'); % Set number of scans in panel 
+    
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+%%%%% RS-40 Init %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% DISABLING ANGLE CONTROL
+set(handles.directiona,'Enable','off');  % Disable direction control
+handles.computerip40 = '192.168.0.100'; % Set server computer IP or URL
+handles.port40 = 26000; % Set server port
+handles.commport = '8';
+numberofmotors = 1;
+handles.axis = '1';
+handles.limitangle = 5; % Max limit angle
+set(handles.goa,'Enable','off');
+set(handles.killa,'Enable','off');
+set(handles.homea,'Enable','off');
+set(handles.reseta,'Enable','off');
+handles.numberrs40 = 0;
+
+% msg = {['INIT ' handles.commport ' ' num2str(numberofmotors)]}; % Creates a command to initialize
+% [answer handles.input_socket40] = rs40(handles.computerip40,handles.port40,msg); % Send the command
+% answerinit = strrep(strrep(char(answer),char(13),''),char(10),'');
+% 
+% if strcmp(answerinit,'Server not running or network problem') == 1
+%     uiwait(warndlg(answerinit,'RS-40 Warning','modal'));
+% elseif strcmp(answerinit,'Initialized successfully') == 1
+%     msg = {'OPEN'}; % Creates a command to open communication
+%     [answer handles.input_socket40] = rs40(handles.computerip40,handles.port40,msg,handles.input_socket40); % Open communication
+%     answeropen = strrep(strrep(char(answer),char(13),''),char(10),'');
+% 
+%     if isempty(answeropen)
+%         uiwait(warndlg('RS-40 not connected','RS-40 Warning','modal'));
+%         msg = {'QUIT'}; % Creates a command to quit the server communication
+%         [answer handles.input_socket40] = rs40(handles.computerip40,handles.port40,msg,handles.input_socket40); %Quit the communication
+%     elseif strcmp(answeropen,'Unable to open controller!')
+%         uiwait(warndlg(answeropen,'RS-40 Warning','modal'));
+%         msg = {'QUIT'}; % Creates a command to quit the server communication
+%         [answer handles.input_socket40] = rs40(handles.computerip40,handles.port40,msg,handles.input_socket40); %Quit the communication
+%     else
+%         for i = 1:numberofmotors % Loop for the number of motors
+%             msg = {['EXECUTE ' num2str(i) ' getserialno']}; % Creates a command to read motor id String
+%             [answer handles.input_socket40] = rs40(handles.computerip40,handles.port40,msg,handles.input_socket40); % Read motor id String
+%             pause(0.5)
+%             [answer handles.input_socket40] = rs40(handles.computerip40,handles.port40,msg,handles.input_socket40); % Read motor id String
+%         end
+% 
+%         command1 = 'SETVEL 1 7.0'; % Creates a command to set max velocity to 10 mm/s
+%         command2 = 'SETACCEL 1 3.0'; % Creates a command to set acceleration to 3 mm/s^2
+%         command3 = 'GETVEL 1'; % Creates a command to read maximum velocity
+%         command4 = 'GETACCEL 1'; % Creates a command to read acceleration
+%         command5 = 'GETPOS 1'; % Creates a command to read positin
+% 
+%         msg = {command1,command2,command3,command4,command5}; % Concatenates the command
+%         [answer handles.input_socket40] = rs40(handles.computerip40,handles.port40,msg,handles.input_socket40); % Send the commands
+% 
+%         velum = regexprep(answer{3},'\n',''); % Convert answer{3} to um/s and assign to velnum
+%         set(handles.veloca,'string',velum); % Set velocity in panel
+% 
+%         accelum = regexprep(answer{4},'\n',''); % Convert answer{4} to um/s^2 and assign to accelnum
+%         set(handles.accea,'string',accelum); % Set acceleration in panel
+% 
+%         posum = answer{5}; % Convert answer{5} to um and assign to posum
+%         set(handles.positiona,'String',posum); % Set position in panel
+% 
+%         set(handles.goa,'Enable','on');
+%         set(handles.killa,'Enable','on');
+%         set(handles.homea,'Enable','on');
+%         set(handles.reseta,'Enable','on');
+%         handles.numberrs40 = 1;
+%     end
+% else
+% end
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 
 % %%%%% Firefly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % 
 % clear FireFlyCameraClientLib
@@ -468,6 +489,7 @@ handles.computeripshutter = '192.168.0.100'; % Set server computer IP or URL
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 handles.imageanalysis = imageanalysis; % Open another window (imageanalysis) and get its handle
+handles.previmg = 'None'; % Store previous image to show change
 
 handles.guifig = gcf;
 handles.tmr = timer('TimerFcn',{@TmrFcn,handles.guifig},'BusyMode','Queue','ExecutionMode','FixedRate','Period',10); % Create a timer to constantly update the temperature of the CCD
@@ -479,13 +501,13 @@ set(gcf,'CloseRequestFcn',{@exitmenu_Callback,handles}); % Change the default va
 %right corner, the program first disconnect the server.
 
 handles.path = ['c:\data\' datestr(date,10) '\' datestr(date,5) '\' datestr(date,5) datestr(date,7) datestr(date,11) '\']; % Set the path as "c:\data\yyyy\mm\mmddyy\"
+handles.run = 'Run1\';
 handles.root = [datestr(date,5) datestr(date,7) datestr(date,11)]; % Set the root name of the image files as "mmddyy"
 handles.filenumber = []; % Initialize to empty the filenumber array
-handles.imagetype = 'test'; % GUSTAVO
 %handles.imagesize = [{num2str(handles.fullwidth)} , {num2str(handles.fullheight)}] ; 
 
 set(handles.newlogent,'Enable','off'); % Disable new log entry button
-set(handles.takeimage,'Enable','off'); % Disable take image button
+set(handles.takeimage,'Enable','on'); % Enable take image button
 set(handles.width,'Enable','off'); % Disable width textbox
 set(handles.height,'Enable','off'); % Disable height textbox
 set(handles.scanstarth,'Enable','off'); % Disable scan start horizontal textbox
@@ -494,16 +516,44 @@ set(handles.nsteph,'Enable','off'); % Disable scan number of steps horizontal te
 set(handles.scanstartv,'Enable','off'); % Disable scan start vertical textbox
 set(handles.scanstepv,'Enable','off'); % Disable scan step size vertical textbox
 set(handles.nstepv,'Enable','off'); % Disable scan number of steps textbox
-set(handles.scanstartd,'Enable','off'); % Disable scan start delay textbox
-set(handles.scanstepd,'Enable','off'); % Disable scan step size delay textbox
-set(handles.nstepd,'Enable','off'); % Disable scan number of steps delay textbox
+set(handles.scanstartd,'Enable','on'); % Enab;e scan start delay textbox
+set(handles.scanstepd,'Enable','on'); % Enable scan step size delay textbox
+set(handles.nstepd,'Enable','on'); % Enable scan number of steps delay textbox
 set(handles.numberscans,'Enable','off'); % Disable number of scans textbox
-set(handles.goscan,'Enable','off'); % Disable go button textbox
+set(handles.goscan,'Enable','on'); % Enable go button textbox
 set(handles.abortscan,'Enable','off'); % Disable abort button textbox
 set(handles.regionsel,'Enable','off'); % Disable selection of ROI popup menu
 set(handles.roi,'Enable','off'); % Disable ROI radio button
 set(handles.fullchip,'Enable','off'); % Disable fullchip radio button
 set(handles.slidertable,'Visible','off'); % Make table slider invisible
+set(handles.numberscans, 'Enable', 'on'); % Enable number of scans dialogue
+
+if( not(isnumeric(get(handles.numberscans, 'String'))) )
+    set(handles.numberscans, 'String', 1);
+    set(handles.scanstartd, 'String', 0);
+    set(handles.scanstepd, 'String', 1000);
+    set(handles.nstepd, 'String', 5);
+end
+
+set(handles.scannum, 'String', '1');
+
+% For use in goscan_Callback
+handles.fields_to_toggle = [
+        handles.width, handles.height ...
+        handles.fullchip, handles.roi ...
+        handles.regionsel ... 
+        handles.god handles.killd handles.homed handles.resetd ... 
+        handles.numberscans ... 
+        handles.scanstartd handles.scanstepd handles.nstepd ... 
+        handles.beforeim handles.afterim ... 
+        handles.goscan ... 
+        handles.savingpath handles.autosave ... 
+        handles.rootname handles.imagename handles.binning ... 
+        handles.exposure ... 
+        handles.takeimage ... 
+        handles.closeshutter1 handles.openshutter1 ... 
+        handles.closeshutter2 handles.openshutter2 ... 
+        ];
 
 handles.children = get(handles.imageanalysis,'Children'); % Get the handles of the elements of the window imageanalysis
 for i = 1:numel(handles.children)
@@ -517,7 +567,9 @@ hchildren = handles.children;
 
 for i = 1:numel(hchildren) % Create handles for all elements of the window imageanalysis
     temp = get(hchildren(i),'Tag');
-    eval(['handles.' temp ' = hchildren(' num2str(i) ') ;']);
+    if( not(isempty(temp)) )
+        eval(['handles.' temp ' = hchildren(' num2str(i) ') ;']);
+    end
 end
 
 htoolbarim = get(handles.uitoolbar1,'Children');
@@ -535,7 +587,7 @@ for m = 1:numel(hchildrenstatpanel)
 end
 
 %handles.idle = 1; % Set idle to 1. It is use in the TmrFcn to updat
-handles.directoryroi = 'C:\Users\llnak\Matlab\Lasers\'; % Set the directory to look for the ROI file
+handles.directoryroi = 'C:\Users\lphys\Documents\MATLAB\experimentclient\'; % Set the directory to look for the ROI file
 fidroi = fopen([handles.directoryroi 'rois.txt']); % Open ROI file
 roiinfo = textscan(fidroi,'%s%s%s','delimiter','\t'); % Read ROI file
 fclose(fidroi); % Close ROI file
@@ -598,15 +650,16 @@ function newlog_ClickedCallback(hObject, ~, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 handles.path = ['c:\data\' datestr(date,10) '\' datestr(date,5) '\' datestr(date,5) datestr(date,7) datestr(date,11) '\']; % Set the path as "c:\data\yyyy\mm\mmddyy\"
+handles.run = 'Run1';
 handles.root = [datestr(date,5) datestr(date,7) datestr(date,11)]; % Set the root name of the image files as "mmddyy"
 handles.filenumber = []; % Initialize to empty the filenumber array
-handles.imagetype = 'test'; % GUSTAVO
 [status,results] = system(['dir ' handles.path]); % Check if the directory for the present day exist
 if status == 1 % If it doesn't exist
     system(['md ' handles.path]); % Create the directory
     handles.filelog = fopen([handles.path handles.root '.log'],'w'); % Create a new log file
     fclose(handles.filelog); % Close the new log file
     set(handles.savingpath,'String',handles.path); % Show log file path (and data path) on screen
+    set(handles.runnum, 'String', '1'); % Show run number on screen
     set(handles.rootname,'String',handles.root); % Show root name of the image files on screen
     set(handles.imagename,'String','1'); % Show root name of the image files on screen
     set(handles.newlogent,'Enable','on'); % Enable new log entry button
@@ -685,6 +738,12 @@ if file ~= 0
     handles.root = file(1:end-4); % Set handles.root to the filename without extension
     set(handles.savingpath,'String',handles.path); % Show path on screen
     set(handles.rootname,'String',handles.root); % Show filename without extension on screen
+    i = 1;
+    while( exist([handles.path 'run' num2str(i) '\'], 'dir') )
+        i = i + 1;
+    end
+    set(handles.runnum, 'String', num2str(i));
+    handles.run = ['Run' num2str(i) '\'];
 end
 
 set(handles.logtable,'UserData',datalog);
@@ -742,43 +801,72 @@ fclose(handles.filelog); % Close log file
 guidata(hObject, handles) ;
 
 % % --------------------------------------------------------------------
-function takeimage_ClickedCallback(hObject, eventdata, handles)
+function previmgname = takeimage_ClickedCallback(hObject, eventdata, handles)
 % hObject    handle to takeimage (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-
+previmgname = 'None';
+handles.runnumber = get(handles.runnum, 'String'); % Read run number from sscreen
 handles.filenumber = get(handles.imagename,'String'); % Read number of image from screen
+handles.scannumber = get(handles.scannum, 'String'); % Read scan number from screen
 j = 0;
 if handles.ccd.IsAcquisitionRunning() == 1 % Check if ccd acquisition is running
     pause(0.5)
-    nloops = num2str(uint16(str2double(get(handles.exposure,'String'))*40));
-    msg = {['TRIGGERCCD ' handles.devname(end) ' 01 ' nloops ' ' num2str(handles.triggeron)]}; % Create a message to trigger ccd
-    NIDAQ(handles.computeripNIDAQ,handles.portni,msg,handles.input_socketni); % Send the commands
 
-    if (strcmp(get(handles.trigger,'Enable'),'on') == 1) && (strcmp(get(handles.trigger,'State'),'on') == 1)
-        pause(uint16(str2double(get(handles.exposure,'String'))))
-        msg = {'READ'}; % 
-        [answer handles.input_socketni] = NIDAQ(handles.computeripNIDAQ,handles.portni,msg,handles.input_socketni); % Send the commands
-        k = 0;
-        power = char(answer);
-        while isempty(power) == 1 && k < 100
-            [answer handles.input_socketni] = NIDAQ(handles.computeripNIDAQ,handles.portni,msg,handles.input_socketni); % Send the commands
-            power = char(answer);
-            k = k + 1;
-        end
-        [pump sprobe] = strtok(answer{1});
-        probe = strtok(sprobe);
-    else
-        pump = 'NaN';
-        probe = 'NaN';
-    end
     
-    checkstatus_Callback([], [], handles)% Check status of shutters
-
+    % NO LONGER USING DAQ TO TRIGGER CCD CAMERA A SPECIFIED NUMBER OF TIMES
+    % LOOP STUFF AFTER THAT LOOKS LIKE IT JUST OBTAINS PRUMP AND PROBE
+    % POWERS FROM DAQ   
+%     nloops = num2str(uint16(str2double(get(handles.exposure,'String'))*40));
+%     msg = {['TRIGGERCCD ' handles.devname(end) ' 01 ' nloops ' ' num2str(handles.triggeron)]}; % Create a message to trigger ccd
+%     NIDAQ(handles.computeripNIDAQ,handles.portni,msg,handles.input_socketni); % Send the commands
+% 
+%     if (strcmp(get(handles.trigger,'Enable'),'on') == 1) && (strcmp(get(handles.trigger,'State'),'on') == 1)
+%         pause(uint16(str2double(get(handles.exposure,'String'))))
+%         msg = {'READ'}; % 
+%         [answer handles.input_socketni] = NIDAQ(handles.computeripNIDAQ,handles.portni,msg,handles.input_socketni); % Send the commands
+%         k = 0;
+%         power = char(answer);
+%         while isempty(power) == 1 && k < 100
+%             [answer handles.input_socketni] = NIDAQ(handles.computeripNIDAQ,handles.portni,msg,handles.input_socketni); % Send the commands
+%             power = char(answer);
+%             k = k + 1;
+%         end
+%         [pump sprobe] = strtok(answer{1});
+%         probe = strtok(sprobe);
+%     else
+%         pump = 'NaN';
+%         probe = 'NaN';
+%     end
+%     
+%     checkstatus_Callback([], [], handles)% Check status of shutters (uses
+%     DAQ)
+%     taking one image at the beginning, we throw this one out because the
+%     first image from the camera is bad.
     [ready,isOperationSuccessful,errorMessage] = handles.ccd.IsImageAvailableForReadout(); % Check if image is ready to be read
     while ready == 0 && j < 100 % If it is not ready, wait
         pause(0.1);
+        tempMessage = cat(2, 'Checking whether camera is ready for image readout; Attempt ', num2str(j));
+        set(handles.messages,'String', tempMessage);  
+        j = j + 1;
+        [ready,isOperationSuccessful,errorMessage] = handles.ccd.IsImageAvailableForReadout();
+    end
+    
+    [image,isOperationSuccessful,errorMessage] = handles.ccd.GetImageFromCamera(); % Read image from ccd server buffer
+    if (~isOperationSuccessful)
+        set(handles.messages,'String',char(errorMessage));
+    else
+        set(handles.messages,'String','Getting Image...');
+        pause(2.)
+    end
+    
+    j = 0;
+    [ready,isOperationSuccessful,errorMessage] = handles.ccd.IsImageAvailableForReadout(); % Check if image is ready to be read
+    while ready == 0 && j < 100 % If it is not ready, wait
+        pause(0.1);
+        tempMessage = cat(2, 'Checking whether camera is ready for image readout; Attempt ', num2str(j));
+        set(handles.messages,'String', tempMessage);  
         j = j + 1;
         [ready,isOperationSuccessful,errorMessage] = handles.ccd.IsImageAvailableForReadout();
     end
@@ -790,6 +878,7 @@ if handles.ccd.IsAcquisitionRunning() == 1 % Check if ccd acquisition is running
         set(handles.messages,'String',char(errorMessage));
     else
         set(handles.messages,'String','Getting Image...');
+        pause(2.)
     end
 
 else % If ccd acquisition is not running
@@ -800,50 +889,77 @@ else % If ccd acquisition is not running
         set(handles.messages,'String',char(errorMessage));
     else
         pause(0.5)
-        nloops = num2str(uint16(str2double(get(handles.exposure,'String'))*40));
-        msg = {['TRIGGERCCD ' handles.devname(end) ' 01 ' nloops ' ' num2str(handles.triggeron)]}; % Create a message to trigger ccd
-        NIDAQ(handles.computeripNIDAQ,handles.portni,msg,handles.input_socketni); % Send the commands
 
-        if (strcmp(get(handles.trigger,'Enable'),'on') == 1) && (strcmp(get(handles.trigger,'State'),'on') == 1)
-            pause(uint16(str2double(get(handles.exposure,'String'))))
-            msg = {'READ'}; %
-            [answer handles.input_socketni] = NIDAQ(handles.computeripNIDAQ,handles.portni,msg,handles.input_socketni); % Send the commands
-            k = 0;
-            power = char(answer);
-            while isempty(power) == 1 && k < 100
-                [answer handles.input_socketni] = NIDAQ(handles.computeripNIDAQ,handles.portni,msg,handles.input_socketni); % Send the commands
-                power = char(answer);
-                k = k + 1;
-            end
-            [pump sprobe] = strtok(answer{1});
-            probe = strtok(sprobe);
-        else
-            pump = 'NaN';
-            probe = 'NaN';
-        end
+        % % TRIGGERING CCD THROUGH DAQ, COMMENTING THIS OUT
+        % nloops = num2str(uint16(str2double(get(handles.exposure,'String'))*40));
+        % msg = {['TRIGGERCCD ' handles.devname(end) ' 01 ' nloops ' ' num2str(handles.triggeron)]}; % Create a message to trigger ccd
+        % NIDAQ(handles.computeripNIDAQ,handles.portni,msg,handles.input_socketni); % Send the commands
+        % 
+        % if (strcmp(get(handles.trigger,'Enable'),'on') == 1) && (strcmp(get(handles.trigger,'State'),'on') == 1)
+        %     pause(uint16(str2double(get(handles.exposure,'String'))))
+        %     msg = {'READ'}; %
+        %     [answer handles.input_socketni] = NIDAQ(handles.computeripNIDAQ,handles.portni,msg,handles.input_socketni); % Send the commands
+        %     k = 0;
+        %     power = char(answer);
+        %     while isempty(power) == 1 && k < 100
+        %         [answer handles.input_socketni] = NIDAQ(handles.computeripNIDAQ,handles.portni,msg,handles.input_socketni); % Send the commands
+        %         power = char(answer);
+        %         k = k + 1;
+        %     end
+        %     [pump sprobe] = strtok(answer{1});
+        %     probe = strtok(sprobe);
+        % else
+        %     pump = 'NaN';
+        %     probe = 'NaN';
+        % end
         
+        % no longer checking status through daq
 %         checkstatus_Callback([], [], handles)% Check status of shutters
         
         [ready,isOperationSuccessful,errorMessage] = handles.ccd.IsImageAvailableForReadout(); % Check if image is ready to be read
         while ready == 0 && j < 100 % If it is not ready, wait
             pause(0.1);
+            tempMessage = cat(2, 'Checking whether camera is ready for image readout; Attempt ', num2str(j));
+            set(handles.messages,'String', tempMessage);  
             j = j + 1;
             [ready,isOperationSuccessful,errorMessage] = handles.ccd.IsImageAvailableForReadout();
         end
-        
-        checkstatus_Callback([], [], handles)% Check status of shutters
-
-        closeshutter2_ClickedCallback([],[],handles);
 
         [image,isOperationSuccessful,errorMessage] = handles.ccd.GetImageFromCamera(); % Read image from ccd server buffer
         if (~isOperationSuccessful)
             set(handles.messages,'String',char(errorMessage));
         else
             set(handles.messages,'String','Getting Image...');
+            pause(2.)
+        end
+
+        j = 0;
+
+        [ready,isOperationSuccessful,errorMessage] = handles.ccd.IsImageAvailableForReadout(); % Check if image is ready to be read
+        while ready == 0 && j < 100 % If it is not ready, wait
+            pause(0.1);
+            tempMessage = cat(2, 'Checking whether camera is ready for image readout; Attempt ', num2str(j));
+            set(handles.messages,'String', tempMessage);  
+            j = j + 1;
+            [ready,isOperationSuccessful,errorMessage] = handles.ccd.IsImageAvailableForReadout();
+        end
+        
+        % no longer checking status through daq
+        % checkstatus_Callback([], [], handles)% Check status of shutters
+    
+        closeshutter2_ClickedCallback([],[],handles);
+
+        [image,isOperationSuccessful,errorMessage] = handles.ccd.GetImageFromCamera(); % Read image from ccd server buffer
+        if (~isOperationSuccessful)
+            set(handles.messages,'String',char(errorMessage));
+            return;
+        else
+            set(handles.messages,'String','Getting Image...');
         end
         [isOperationSuccessful,errorMessage] = handles.ccd.StopAcquisition(); % Stop ccd acquisition
         if (~isOperationSuccessful)
             set(handles.messages,'String',char(errorMessage));
+            return;
         else
             start(handles.tmr); % Start the timer of temperature update
             set(handles.settemp,'Enable','on')
@@ -854,6 +970,7 @@ end
 handles.image = image.uint16; % Save image from buffer to handles.image
 
 set(handles.filenamelabel,'UserData',handles.image); % Save image in UserData of filenamelabel
+
 
 set(handles.contmin,'Enable','on'); % Enable min control in imageanalysis window
 set(handles.contmax,'Enable','on'); % Enable max control in imageanalysis window
@@ -924,14 +1041,13 @@ else % If autosave is tick
     else
     end
     
-    % GUSTAVO
-    [status, ~] = system(['dir ' handles.path handles.imagetype]); % Check folder for individual image type
-    if status == 1 % If it doesn't exist
-        system(['md ' handles.path handles.imagetype]);
+    handles.path = get(handles.savingpath,'String'); % Read path from screen
+    mainpath = [handles.path handles.run]; % Create 1 and 2 folders as needed
+    if ( not(exist([mainpath '1\'], 'dir')) )
+        mkdir([mainpath '1']);
+        mkdir([mainpath '2']);
     end
     
-    handles.path = get(handles.savingpath,'String'); % Read path from screen
-
     if isempty(handles.filenumber) % If filename was not set
         warndlg('Please type a proper filename', 'Filename error') % Warning dialog
     else
@@ -943,7 +1059,7 @@ else % If autosave is tick
         if isempty(datalog); % If log table is empty
             number = num2str(1); % Set number of file to 1
         else % If it is not empty
-        number = num2str(str2double(char(datalog(end,1))) + 1); % Set number to previous number + 1
+            number = num2str(str2double(char(datalog(end,1))) + 1); % Set number to previous number + 1
         end
       
         horizontal = get(handles.positionh,'String'); % Show horizontal position of the sample on the table
@@ -953,12 +1069,13 @@ else % If autosave is tick
         exposure = get(handles.exposure,'String'); % Show exposure time on the table
         image = [handles.root '_' handles.filenumber '.tif']; % Show image name
         notes = ' '; % Show notes to empty String
-
-        newline = {number horizontal vertical stage current exposure image pump probe notes}; % Set newline with the values defined above
-        description = sprintf('Number: %s\tHorizontal: %s\tVertical: %s\tStage: %s\tCurrent: %s\tExposure: %s\tImage: %s\tPump: %s\tProbe: %s\tNotes: %s\r\n',number,horizontal,vertical,stage,current,exposure,image,pump,probe,notes);
-        % GUSTAVO
-        imwrite(uint16(handles.image),[handles.path handles.imagetype '\' handles.root '_' handles.filenumber '.tif'],'Description',description); % Write image in harddrive
+        
+        newline = {number horizontal vertical stage current exposure image notes}; % Set newline with the values defined above
+        description = sprintf('Number: %s\tHorizontal: %s\tVertical: %s\tStage: %s\tCurrent: %s\tExposure: %s\tImage: %s\tNotes: %s\r\n',number,horizontal,vertical,stage,current,exposure,image,notes);
+        imgfilename = [handles.path handles.run handles.scannumber '\' handles.root '_' handles.filenumber '.tif'];
+        imwrite(uint16(handles.image),imgfilename,'Description',description); % Write image in harddrive
         datalog = [datalog ; newline]; % Set datalog to the previous datalog and concatenate new values
+        previmgname = imgfilename;
 
         sizelog = size(datalog);
         if sizelog(1) > 10
@@ -975,9 +1092,11 @@ else % If autosave is tick
         set(handles.slidertable,'Value',0)
 
         handles.filenumber = num2str(str2double(handles.filenumber)+1); % Increase the filenumber
+        handles.scannumber = num2str(mod(str2double(handles.scannumber), 2) + 1); % Toggle scannumber between 1 and 2
         set(handles.imagename,'String',handles.filenumber); % Show new number on screen
+        set(handles.scannum, 'String', handles.scannumber); % Show new number on screen
         handles.filelog = fopen([handles.path handles.root '.log'],'a'); % Open log file to append
-        fprintf(handles.filelog,'%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\r\n',number, horizontal, vertical, stage, current, exposure, image, pump, probe, notes); % Write log
+        fprintf(handles.filelog,'%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\r\n',number, horizontal, vertical, stage, current, exposure, image, notes); % Write log
         fclose(handles.filelog); % Close log file
         set(handles.logtable,'UserData',datalog);
     end
@@ -985,78 +1104,102 @@ end
 
 guidata(hObject, handles);
 
-% --------------------------------------------------------------------
+% % --------------------------------------------------------------------
 function openshutter1_ClickedCallback(~, ~, handles)
-% hObject    handle to openshutter1 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+    % hObject    handle to openshutter1 (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
+    set(handles.messages,'String',char('Opening Shutter 1...'));
+    [isOperationSuccessful,errorMessage] = OpenShutter(handles.UniblitzServer,1); % Open shutter 1
+    if ~(isOperationSuccessful)
+        errorMessage = append('Shutter 1 unable to open. <', errorMessage, '>')
+        uiwait(warndlg(errorMessage, 'Shutter Warning', 'modal'))
+    else
+        % updates the shutter status radio buttons
+        set(handles.shutterindic1, 'Value', 1);
+    end
+    
+    % checkstatus_Callback([], [], handles)% Check status of shutters
 
-[isOperationSuccessful,errorMessage] = OpenShutter(handles.UniblitzServer,1); % Open shutter 1
-checkstatus_Callback([], [], handles)% Check status of shutters
-
-% --------------------------------------------------------------------
+% % --------------------------------------------------------------------
 function closeshutter1_ClickedCallback(~, ~, handles)
-% hObject    handle to closeshutter1 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+    % hObject    handle to closeshutter1 (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
+    [isOperationSuccessful,errorMessage] = CloseShutter(handles.UniblitzServer,1); % Close shutter 1
+    if ~(isOperationSuccessful)
+        errorMessage = append('Shutter 1 unable to close. <', errorMessage, '>')
+        uiwait(warndlg(errorMessage, 'Shutter Warning', 'modal'))
+    end
 
-[isOperationSuccessful,errorMessage] = CloseShutter(handles.UniblitzServer,1); % Close shutter 1
-checkstatus_Callback([], [], handles)% Check status of shutters
+    % checkstatus_Callback([], [], handles)% Check status of shutters
 
-% --------------------------------------------------------------------
+% % --------------------------------------------------------------------
 function openshutter2_ClickedCallback(~, ~, handles)
-% hObject    handle to openshutter2 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+    % hObject    handle to openshutter2 (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
+    [isOperationSuccessful,errorMessage] = OpenShutter(handles.UniblitzServer,2); % Open shutter 2
+    if ~(isOperationSuccessful)
+        errorMessage = append('Shutter 2 unable to open. <', errorMessage, '>')
+        uiwait(warndlg(errorMessage, 'Shutter Warning', 'modal'))
+    end
+    % checkstatus_Callback([], [], handles)% Check status of shutters
 
-[isOperationSuccessful,errorMessage] = OpenShutter(handles.UniblitzServer,2); % Open shutter 2
-checkstatus_Callback([], [], handles)% Check status of shutters
-
-% --------------------------------------------------------------------
+% % --------------------------------------------------------------------
 function closeshutter2_ClickedCallback(~, ~,handles)
-% hObject    handle to closeshutter2 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-[isOperationSuccessful,errorMessage] = CloseShutter(handles.UniblitzServer,2); % Close shutter 2
-checkstatus_Callback([], [], handles)% Check status of shutters
-
-% --------------------------------------------------------------------
-function sample_ClickedCallback(hObject, eventdata, handles)
-% hObject    handle to sample (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-handles.sample = 1;
-hmyquest = myquestdlg; % Open a dialog question box
-hands = get(hmyquest,'Children'); % Get the handles of the new window
-
-for i = 1:numel(hands)
-    eval([get(hands(i),'Tag') 'status = get(hands(' num2str(i) '),''Value'');']);
-end
+    % hObject    handle to closeshutter2 (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
     
-while yesstatus == 0 && nostatus == 0 % Keeps looping while no button is pressed
-    pause(0.2)
-    for i = 1:numel(hands)
-        eval([get(hands(i),'Tag') 'status = get(hands(' num2str(i) '),''Value'');']);
+    [isOperationSuccessful,errorMessage] = CloseShutter(handles.UniblitzServer,2); % Close shutter 2
+    % checks if the closing was successful
+    if ~(isOperationSuccessful)
+        errorMessage = append('Shutter 2 unable to close. <', errorMessage, '>')
+        uiwait(warndlg(errorMessage, 'Shutter Warning', 'modal'))
     end
-    
-    if yesstatus == 1 % If yes is pressed
-        set(handles.destinationh,'String','10000'); % Move linear and rotation stages
-        set(handles.operationh,'Value',1);
-        delete(hmyquest);
-        goh_Callback(hObject, eventdata, handles);
-        
-        set(handles.destinationa,'String','90.000000'); % Move linear and rotation stages
-        set(handles.operationa,'Value',1);
-        goa_Callback(hObject, eventdata, handles);
-        handles.sample = 0;
-    elseif nostatus == 1 % If No is pressed
-        delete(hmyquest);
-    end
-end
 
-guidata(hObject,handles);
+    % checkstatus_Callback([], [], handles)% Check status of shutters
+
+% % --------------------------------------------------------------------
+% function sample_ClickedCallback(hObject, eventdata, handles)
+% % hObject    handle to sample (see GCBO)
+% % eventdata  reserved - to be defined in a future version of MATLAB
+% % handles    structure with handles and user data (see GUIDATA)
+% 
+% handles.sample = 1;
+% hmyquest = myquestdlg; % Open a dialog question box
+% hands = get(hmyquest,'Children'); % Get the handles of the new window
+% 
+% for i = 1:numel(hands)
+%     eval([get(hands(i),'Tag') 'status = get(hands(' num2str(i) '),''Value'');']);
+% end
+%     
+% while yesstatus == 0 && nostatus == 0 % Keeps looping while no button is pressed
+%     pause(0.2)
+%     for i = 1:numel(hands)
+%         eval([get(hands(i),'Tag') 'status = get(hands(' num2str(i) '),''Value'');']);
+%     end
+%     
+%     if yesstatus == 1 % If yes is pressed
+%         set(handles.destinationh,'String','10000'); % Move linear and rotation stages
+%         set(handles.operationh,'Value',1);
+%         delete(hmyquest);
+%         goh_Callback(hObject, eventdata, handles);
+%         
+%         set(handles.destinationa,'String','90.000000'); % Move linear and rotation stages
+%         set(handles.operationa,'Value',1);
+%         goa_Callback(hObject, eventdata, handles);
+%         handles.sample = 0;
+%     elseif nostatus == 1 % If No is pressed
+%         delete(hmyquest);
+%     end
+% end
+% 
+% guidata(hObject,handles);
 % 
 % %%%% End Toolbar  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % 
@@ -1087,11 +1230,13 @@ guidata(hObject,handles);
 % 
 % 
 % % --------------------------------------------------------------------
-% function exitmenu_Callback(~, ~, handles)
-% % hObject    handle to exitmenu (see GCBO)
-% % eventdata  reserved - to be defined in a future version of MATLAB
-% % handles    structure with handles and user data (see GUIDATA)
-% 
+function exitmenu_Callback(~, ~, handles)
+% hObject    handle to exitmenu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% % DONT THINK WE'RE USING THIS ANYMORE
 % for i = 1:handles.numberpp30
 %     msg = {['CLOSE '  handles.handarray(i,:)]};
 %     [answer handles.input_socket30] = pp30(handles.computerip30,handles.port30,msg,handles.input_socket30); %Close the communication
@@ -1100,23 +1245,24 @@ guidata(hObject,handles);
 %         [answer handles.input_socket30] = pp30(handles.computerip30,handles.port30,msg,handles.input_socket30); %Quit the communication
 %     end 
 % end
-% 
-% if handles.numberrs40 ~= 0
-%     msg = {'CLOSE'}; % Creates a command to close the server communication
-%     [answer handles.input_socket40] = rs40(handles.computerip40,handles.port40,msg,handles.input_socket40); %Close the communication
-%     msg = {'QUIT'}; % Creates a command to close the server communication
-%     [answer handles.input_socket40] = rs40(handles.computerip40,handles.port40,msg,handles.input_socket40); %Quit the communication
-% end
-% 
-% if handles.ccd.IsAcquisitionRunning() == 1 % Check if acquisition of the ccd is running
-%     [isOperationSuccessful,errorMessage] = handles.ccd.StopAcquisition(); % Stop acquisition
-%     if (~isOperationSuccessful)
-%         set(handles.messages,'String',char(errorMessage));
-%     else
-%         set(handles.messages,'String','Stopping acquisition');
-%     end
-% end
-% 
+
+if handles.numberrs40 ~= 0
+    msg = {'CLOSE'}; % Creates a command to close the server communication
+    [answer handles.input_socket40] = rs40(handles.computerip40,handles.port40,msg,handles.input_socket40); %Close the communication
+    msg = {'QUIT'}; % Creates a command to close the server communication
+    [answer handles.input_socket40] = rs40(handles.computerip40,handles.port40,msg,handles.input_socket40); %Quit the communication
+end
+
+if handles.ccd.IsAcquisitionRunning() == 1 % Check if acquisition of the ccd is running
+    [isOperationSuccessful,errorMessage] = handles.ccd.StopAcquisition(); % Stop acquisition
+    if (~isOperationSuccessful)
+        set(handles.messages,'String',char(errorMessage));
+    else
+        set(handles.messages,'String','Stopping acquisition');
+    end
+end
+
+% % not using firefly i guess?
 % if (handles.ffClient.IsAcquisitionRunning(handles.camera)) % Check if acquisition of the firefly is running
 %     [isOperationSuccessful,errorMessage] = handles.ffClient.StopAcquisition(handles.camera); % Stop acquisition
 %     if (~isOperationSuccessful)
@@ -1125,25 +1271,25 @@ guidata(hObject,handles);
 %         set(handles.messages,'String','Stopping acquisition');
 %     end    
 % end
-% 
+% % both of these timers are just for firefly
 % stop(handles.tmr2); % Stop timer
 % delete(handles.tmr2); % Delete timer
 % 
 % stop(handles.tmr); % Stop timer
 % delete(handles.tmr); % Delete timer
-% 
+
 % if handles.NIDAQ == 1
 %     msg = {'QUIT'}; % Create a message to close communication with NIDAQ
 %     [answer handles.input_socketni] = NIDAQ(handles.computeripNIDAQ,handles.portni,msg,handles.input_socketni); % Send the commands
 % end
-% 
-% delete(gcf); % Exit the program
-% 
-% ia = findobj('type','figure','name','imageanalysis');
-% if ~isempty(ia); % If imageanalysis window is still running, close it
-%     delete(handles.imageanalysis); % Exit the image analysis program
-% end
-% 
+
+delete(gcf); % Exit the program
+
+ia = findobj('type','figure','name','imageanalysis');
+if ~isempty(ia); % If imageanalysis window is still running, close it
+    delete(handles.imageanalysis); % Exit the image analysis program
+end
+
 % %%%% End Menu  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
@@ -3110,220 +3256,168 @@ function goscan_Callback(hObject, eventdata, handles)
 % hObject    handle to goscan (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+    disable_fields(handles);
+    uiwait(msgbox('Be ready to check the shutter state for the first scan!'));
+    handles.previmg = 'None'; % Used to plot image change over different images
+    % Enable ccd acquisition if not already running
+%     pause(0.1)
+%     if handles.ccd.IsAcquisitionRunning() == 1 % Check if acquisition is running
+%     else
+%         [isOperationSuccessful,errorMessage] = handles.ccd.StartAcquisition(); % Start acquisition
+%         if (~isOperationSuccessful)
+%             set(handles.messages,'String',char(errorMessage));
+%             pause(2);
+%         else
+%         end
+%     end
 
-%handles.idle = 0;
+    DS_init = str2double(get(handles.scanstartd, 'String')) / 1000; % Convert um to mm for the server
+    step_size = str2double(get(handles.scanstepd, 'String')) / 1000; % Convert um to mm for the server
+    nsteps = str2double(get(handles.nstepd, 'String'));
+    DS_final = DS_init + step_size * (nsteps - 1); % Calculate the final position
+    
+    DS_minpos = str2double(GetStageMinimumPosition(handles.PIServer, 1));
+    DS_maxpos = str2double(GetStageMaximumPosition(handles.PIServer, 1));
 
-set(handles.width,'Enable','off'); % Disable width
-set(handles.height,'Enable','off'); % Disable height
-set(handles.fullchip,'Enable','off'); % Disable fullchip
-set(handles.roi,'Enable','off'); % Disable roi
-set(handles.regionsel,'Enable','off'); % Disable region selection
-set(handles.goh,'Enable','off'); % Disable go horizontal
-set(handles.gov,'Enable','off'); % Disable go vertical
-set(handles.god,'Enable','off'); % Disable go stage
-set(handles.goa,'Enable','off'); % Disable go rotation
-set(handles.killh,'Enable','off'); % Disable kill horizontal
-set(handles.killv,'Enable','off'); % Disable kill vertical
-set(handles.killd,'Enable','off'); % Disable kill stage
-set(handles.killa,'Enable','off'); % Disable kill rotation
-set(handles.homeh,'Enable','off'); % Disable home horizontal
-set(handles.homev,'Enable','off'); % Disable home vertical
-set(handles.homed,'Enable','off'); % Disable home stage
-set(handles.homea,'Enable','off'); % Disable home rotation
-set(handles.reseth,'Enable','off'); % Disable reset horizontal
-set(handles.resetv,'Enable','off'); % Disable reset vertical
-set(handles.resetd,'Enable','off'); % Disable reset stage
-set(handles.reseta,'Enable','off'); % Disable reset rotation
-set(handles.settemp,'Enable','off'); % Disable set temperature
-stop(handles.tmr); % Stop timer
-
-dpos = str2double(get(handles.scanstartd,'String')); % Read start stage scan from screen
-hstep = str2double(get(handles.scansteph,'String')); % Read horizontal step size from screen
-if isempty(hstep) == 1 % If horizontal step size is empty
-    hstep = 1; % Set to 1
-end
-vstep = str2double(get(handles.scanstepv,'String')); % Read vertical step size from screen
-if isempty(vstep) == 1 % If vertical step size is empty
-    vstep = 1; % Set to 1
-end
-dstep = str2double(get(handles.scanstepd,'String')); % Read stage step size from screen
-numsteph = str2double(get(handles.nsteph,'String')); % Read horizontal number of steps from screen
-if isempty(numsteph) == 1 % If horizontal number of steps is empty
-    numsteph = 1; % Set to 1
-end
-numstepv = str2double(get(handles.nstepv,'String')); % If vertical number of steps is empty
-if isempty(numstepv) == 1 % If vertical number of steps is empty
-    numstepv = 1; % Set to 1
-end
-numstepd = str2double(get(handles.nstepd,'String')); % Read stage number of steps from screen
-
-hmax = str2double(get(handles.scanstarth,'String')) + hstep*(numsteph-1); % Calculate max horizontal position
-vmax = str2double(get(handles.scanstartv,'String')) + vstep*(numstepv-1); % Calculate max vertical position
-dmax = str2double(get(handles.scanstartd,'String')) + dstep*(numstepd-1); % Calculate max stage position
-smax = str2double(get(handles.numberscans,'String')); % Read number of scans from screen
-
-k = 0;
-horodd = 1;
-scannum = 1;
-
-pause(0.1)
-if handles.ccd.IsAcquisitionRunning() == 1 % Check if acquisition is running
-else
-    [isOperationSuccessful,errorMessage] = handles.ccd.StartAcquisition(); % Start acquisition
-    if (~isOperationSuccessful)
-        set(handles.messages,'String',char(errorMessage));
-    else
+    % Check if input positions are valid
+    if (DS_init < DS_minpos || DS_init > DS_maxpos)
+        errordlg('Initial position is beyond the limits', 'Error')
+        return
     end
-end
+    if (DS_final < DS_minpos || DS_final > DS_maxpos)
+        errordlg('Final position is beyond the limits', 'Error')
+        return
+    end
 
-if numstepv == 1 && numsteph == 1  % If number of horizontal or vertical steps are 1 (simple scan)
-    imtot = str2double(get(handles.nstepd,'String'))*smax; % Calculate total number of images
-     if get(handles.beforeim,'Value') == 1 && get(handles.afterim,'Value') == 1 % If after image and before image is selected
-         imtot = imtot*3; % Multiply by 3 the total number of images
-     elseif xor(get(handles.beforeim,'Value'),get(handles.afterim,'Value')) == 1 % If after image or before image is selected
-         imtot = imtot*2; % Multiply by 2 the total number of images
-     end
-     while scannum <= smax % Loop until reach number of scans
-        dpos = str2double(get(handles.scanstartd,'String')); % Read start stage position from screen
-        while dpos <= dmax && get(handles.abortscan,'Value') == 0 % Loop until reach maximum stage position
-            set(handles.destinationd,'String',num2str(dpos)); % Show stage destination on screen
-            set(handles.targetd,'String',get(handles.destinationd,'String')); % Copy stage destination into stage target
-            target = str2double(get(handles.targetd,'String'))/1000;
-            MoveStageToAbsolutePosition(handles.PIServer,1,target); % Move absolute delay stage
-            while strcmp(isStageOnTarget(handles.PIServer, 1),'false') == 1
-                pause(0.01);
-                set(handles.positiond,'String',num2str(round(str2double(GetStagePosition(handles.PIServer, 1))*1000))); % Show new stage position on screen
-            end
-            set(handles.positiond,'String',num2str(round(str2double(GetStagePosition(handles.PIServer, 1))*1000))); % Show new stage position on screen
-            if get(handles.beforeim,'Value') == 1 % If image before is selected
-                
-                handles.imagetype = 'beforeim'; % GUSTAVO: Set imagetype
-                takeimage_ClickedCallback(hObject, eventdata, handles); % Go to take image
-
-                checkstatus_Callback([], [], handles)% Check status of shutters
-
-                k = k + 1; % Update counter
-                set(handles.scanstatus,'String',[num2str((k)) '/' num2str(imtot)]); % Show scan status on screen
-            end
-            k = k + 1; % Update counter
-            
-            openshutter2_ClickedCallback(hObject, eventdata, handles); % Open pump shutter2
-            
-            handles.imagetype = 'main'; %GUSTAVO: Set imagetype
-            takeimage_ClickedCallback(hObject, eventdata, handles) ; % Take image
-            
-            checkstatus_Callback([], [], handles)% Check status of shutters
-
-            set(handles.scanstatus,'String',[num2str((k)) '/' num2str(imtot)]); % Show scan status on screen
-
-            if get(handles.afterim,'Value') == 1 % If image after is selected
-                
-                handles.imagetype = 'afterim'; % GUSTAVO: Set image type
-                takeimage_ClickedCallback(hObject, eventdata, handles); % Take image
-
-                checkstatus_Callback([], [], handles)% Check status of shutters
-
-                k = k + 1; % Update counter
-                set(handles.scanstatus,'String',[num2str((k)) '/' num2str(imtot)]); % Show scan status on screen
-            end
-            
-            handles.imagetype = 'test'; % GUSTAVO: reset to test
-            
-            dpos = dpos + dstep; % Update counter
-            set(handles.scanstatus,'String',[num2str((k)) '/' num2str(imtot)]); % Show scan status on screen
+    % Move to initial position
+    set(handles.messages, 'String', 'Moving DS to initial position');
+    move_ds(handles, DS_init);
+    nscans = str2double(get(handles.numberscans, 'String')) * 2;
+    imtot = nsteps * nscans;
+    beforeim_enabled = get(handles.beforeim, 'Value');
+    afterim_enabled = get(handles.afterim, 'Value');
+    scans_per_ds = 1 + beforeim_enabled + afterim_enabled;
+    imtot = imtot * scans_per_ds;
+    k = 1;
+    for loop_counter = 1:nscans
+        if abortcheck(handles)
+            break;
         end
-        scannum = scannum + 1; % Update counter
-     end
-else % If number of horizontal or vertical steps are not 1
-    if smax == 1
-        imtot = numstepv*numsteph;
-    else
-        imtot = min(numstepd*smax,numstepv * numsteph);
-    end
-%multiscan(handles) ;
-    while vpos <= vmax && get(handles.abortscan,'Value') == 0  && scannum <= smax % Loop until max vertical position is reached or number of scans is reached or abort is pressed
-    %move vertical stage
-        set(handles.destinationv,'String',num2str(vpos)); % Show vertical destination on screen
-        gov_Callback(hObject, eventdata, handles); % Go to gov_Callback function
-         if horodd == 1 % If horizontal odd row, move in one direction
-             hin =  str2double(get(handles.scanstarth,'String'));
-             hpos = hin;
-             steph = hstep;
-             hfin = hmax;
-         else % If horizontal even row, move in the other direction
-             steph = -1 * hstep;
-             hpos = hpos + steph; % to be deleted
-             hin = hpos;
-             hfin = str2double(get(handles.scanstarth,'String'));
-         end
-
-        while hpos >= min(hin,hfin) && hpos <= max(hin,hfin) && get(handles.abortscan,'Value') == 0 && scannum <= smax % Loop until max horizontal position is reached or number of scans is reached or abort is pressed
-            
-            % move horizontal stage
-            % move delay stage
-            k = k + 1; % Update counter
-            set(handles.destinationh,'String',num2str(hpos)); % Show horizontal destination on screen
-            goh_Callback(hObject, eventdata, handles); % Go to goh_Callback function
-            set(handles.scanstatus,'String',[num2str((k)) '/' num2str(imtot)]); % Show scan status on screen
-            pause(0.2);
-            if dpos >= dmax || k == 1
-                dpos =  str2double(get(handles.scanstartd,'String'));
-            else
-                dpos = dpos + dstep;
+        j = 1;
+        for i = DS_init:step_size:DS_final
+            set(handles.messages, 'String', ['Beginning step ' num2str(j) ' of ' num2str(nsteps)]);
+            % Move the delay stage to the next position
+            move_ds(handles, i);
+            % Check if abort
+            if abortcheck(handles)
+                break;
             end
-            if dpos >= dmax && smax ~= 1
-                scannum = scannum + 1;
+            % If before image is enabled, take the image
+            if beforeim_enabled
+                handles.imtype = 'before';
+                set(handles.messages, 'String', ['Taking before image (' num2str(k) ' of ' num2str(imtot) ')']); 
+                takeimage_ClickedCallback(hObject, eventdata, handles);
+                %pause(1);
+                k = k + 1;
             end
-            set(handles.destinationd,'String',num2str(dpos)); % Show stage destination on screen
-
-            %%% Add shutter stuff
-            handles.imagetype = 'main'; % GUSTAVO: Set image type
-            takeimage_ClickedCallback(hObject, eventdata, handles);
-            %%% Add shutter stuff
-            
-            hpos = hpos + steph;
+            if abortcheck(handles)
+                break;
+            end
+            for loop_counter = 1:nscans
+            % Take main image
+                handles.imtype = 'main';
+                set(handles.messages, 'String', ['Taking main image (' num2str(loop_counter) ' of ' ...
+                    num2str(nscans) ')']);
+                handles.previmg = takeimage_ClickedCallback(hObject, eventdata, handles);
+                %pause(1);
+                k = k + 1;
+                if abortcheck(handles)
+                    break;
+                end
+            end
+            if abortcheck(handles)
+                break;
+            end
+            % If after image is enabled, take the image
+            if afterim_enabled
+                handles.imtype = 'after';
+                set(handles.messages, 'String', ['Taking after image (' num2str(k) ' of ' num2str(imtot) ')']);
+                takeimage_ClickedCallback(hObject, eventdata, handles);
+                k = k + 1;
+            end
+            j = j + 1;
         end
-        horodd = not(horodd); % Change parity of horodd
-        vpos = vpos + vstep;
     end
-end
+%   handles.ccd.StopAcquisition(); % Stop acquisition
 
-[isOperationSuccessful,errorMessage] = handles.ccd.StopAcquisition(); % Stop acquisition
+    enable_fields(handles);
+    set(handles.abortscan, 'Enable', 'off');
+    set(handles.settemp,'Enable','on'); % Enable set temperature
+    runnum = str2double(get(handles.runnum, 'String')); % Move runnum to the next available number
+    while( exist([handles.path 'Run' num2str(runnum)], 'dir') ) 
+        runnum = runnum + 1;
+    end
+    set(handles.runnum, 'String', num2str(runnum)); 
+    handles.run = ['Run' num2str(runnum) '\']; % Update run directory
+    if(abortcheck(handles))
+        set(handles.messages, 'String', 'Aborted');
+        set(handles.abortscan, 'Value', 0);
+    else
+        set(handles.messages,'String','Scan completed!');
+    end
+    guidata(hObject, handles);
 
-set(handles.width,'Enable','on'); % Enable width
-set(handles.height,'Enable','on'); % Enable height
-set(handles.fullchip,'Enable','on'); % Enable fullchip
-set(handles.roi,'Enable','on'); % Enable roi
-set(handles.regionsel,'Enable','on'); % Enable region selection
-set(handles.goh,'Enable','on'); % Enable go horizontal
-set(handles.gov,'Enable','on'); % Enable go vertical
-set(handles.god,'Enable','on'); % Enable go stage
-set(handles.goa,'Enable','on'); % Enable go rotation
-set(handles.killh,'Enable','on'); % Enable kill horizontal
-set(handles.killv,'Enable','on'); % Enable kill vertical
-set(handles.killd,'Enable','on'); % Enable kill stage
-set(handles.killa,'Enable','on'); % Enable kill rotation
-set(handles.homeh,'Enable','on'); % Enable home horizontal
-set(handles.homev,'Enable','on'); % Enable home vertical
-set(handles.homed,'Enable','on'); % Enable home stage
-set(handles.homea,'Enable','on'); % Enable home rotation
-set(handles.reseth,'Enable','on'); % Enable reset horizontal
-set(handles.resetv,'Enable','on'); % Enable reset vertical
-set(handles.resetd,'Enable','on'); % Enable reset stage
-set(handles.reseta,'Enable','on'); % Enable reset rotation
+function res = abortcheck(handles)
+    % ABORTCHECK  Checks if the user wants to abort the scan
+    % 
+    % handles: handles object
+    % res: 1 if the user wants to abort, 0 otherwise
 
+    res = 0;
+    if get(handles.abortscan, 'Value') == 1
+        res = 1;
+    end
 
-set(handles.abortscan,'Value',0); % Set abort scan to 0
-set(handles.settemp,'Enable','on'); % Enable set temperature
-set(handles.messages,'String','Scan completed');
-start(handles.tmr); % Restart timer
-guidata(hObject, handles);
+function move_ds(handles, position)
+    % MOVE_DS  Moves the delay stage to the specified position
+    %
+    % DS: handles object
+    % position: position to move the stage to
+
+    % Move the stage to the specified position
+    MoveStageToAbsolutePosition(handles.PIServer, 1, position);
+    
+    set(handles.targetd, 'String', num2str(position * 1000));
+    % Wait until the stage is on target
+    while strcmp(isStageOnTarget(handles.PIServer, 1), 'false') && get(handles.abortscan, 'Value') == 0
+        pause(0.02);
+        set(handles.positiond, 'String', num2str(round(str2double(GetStagePosition(handles.PIServer, 1)) * 1000)));
+    end
+    set(handles.positiond,'String', num2str(round(str2double(GetStagePosition(handles.PIServer, 1)) * 1000)));
+    StopStage(handles.PIServer, 1);
+    
+
+function enable_fields(handles)
+    for field=handles.fields_to_toggle
+        set(field, 'Enable', 'on');
+    end
+    set(handles.abortscan, 'Enable', 'off');
+%     start(handles.tmr); % Start timer
+
+function disable_fields(handles)
+    for field=handles.fields_to_toggle
+        set(field, 'Enable', 'off');
+    end
+    set(handles.abortscan, 'Enable', 'on');
+%     stop(handles.tmr); % Stop timer
 
 % --- Executes on button press in abortscan.
 function abortscan_Callback(hObject, ~, handles)
 % hObject    handle to abortscan (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
+set(hObject, 'Value', 1);
 
 guidata(hObject, handles);
 
@@ -3397,7 +3491,17 @@ function settemp_Callback(hObject, ~, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 if handles.ccd.IsAcquisitionRunning() == 1 % Check if acquisition is running
+    set(handles.message, 'String', char('Stopping Acquisition...'));
+    pause(0.1);
     [isOperationSuccessful,errorMessage] = handles.ccd.StopAcquisition(); % Stop acquisition
+    if ~(isOperationSuccessful)
+        
+        set(handles.message, 'String', char(errorMessage));
+        return;
+    else
+        set(handles.message, 'String', char('Stopping Acquisition...'));
+        pause(0.5);
+    end
 end
 
 stop(handles.tmr); % Stop timer
@@ -3448,51 +3552,56 @@ function shutterindic2_Callback(~, ~, ~)
 
 % Hint: get(hObject,'Value') returns toggle state of shutterindic2
 
+
+% USES DAQ TO CHECK THE SHUTTER STATUS
 function checkstatus_Callback(~, ~, handles)
 % hObject    handle to exitmenu (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-channels = '01';
-msg = {['DIGITALIN ' handles.devname(end) '1 ' channels]}; % Message to check status of the shutters
-[answer handles.input_socketni] = NIDAQ(handles.computeripNIDAQ,handles.portni,msg,handles.input_socketni); % Send the commands
-hand = answer{1};
-hand = char(hand);
-hand = strrep(hand,char(13),'');
-hand = strrep(hand,char(10),'');
-newstr = strrep(hand,' ',';');
-newstr2 = '';
-for m = 1:numel(newstr)
-    if strcmp(newstr(m),';')
-        newstr2 = [newstr2 ';'];
-    else
-        if ~isnan(str2double(newstr(m)))
-            newstr2 = [newstr2 newstr(m)];
-        else
-            newstr2 = [newstr2 ''];
-        end
-    end
-end
+errorMessage = append('Software trying to check shutter status using DAQ, this should not be happening.')
+uiwait(warndlg(errorMessage, 'DAQ  Warning', 'modal'))
 
-newstr2 = newstr2(1:ceil(2*numel(channels)-1));
-if strcmp(newstr2(1),'S')
-    msg = {'QUIT'}; % Create a message to close communication with NIDAQ
-    [answer handles.input_socketni] = NIDAQ(handles.computeripNIDAQ,handles.portni,msg,handles.input_socketni); % Send the commands
-else
-    eval(['values = sum([' newstr ']);'])
-    binvalues = fliplr(dec2bin(values,numel(channels)));
-    stat = zeros(numel(channels),1);
-    for i = 1:numel(channels)
-        if strcmp(binvalues(i),'1') == 1
-            stat(i) = 0;
-        else
-            stat(i) = 1;
-        end
-    end
-    
-    set(handles.shutterindic1,'Value',stat(1)); % Show value of the shutter 1 on screen
-    set(handles.shutterindic2,'Value',stat(2)); % Show value of the shutter 2 on screen
-end
+% channels = '01';
+% msg = {['DIGITALIN ' handles.devname(end) '1 ' channels]}; % Message to check status of the shutters
+% [answer handles.input_socketni] = NIDAQ(handles.computeripNIDAQ,handles.portni,msg,handles.input_socketni); % Send the commands
+% hand = answer{1};
+% hand = char(hand);
+% hand = strrep(hand,char(13),'');
+% hand = strrep(hand,char(10),'');
+% newstr = strrep(hand,' ',';');
+% newstr2 = '';
+% for m = 1:numel(newstr)
+%     if strcmp(newstr(m),';')
+%         newstr2 = [newstr2 ';'];
+%     else
+%         if ~isnan(str2double(newstr(m)))
+%             newstr2 = [newstr2 newstr(m)];
+%         else
+%             newstr2 = [newstr2 ''];
+%         end
+%     end
+% end
+% 
+% newstr2 = newstr2(1:ceil(2*numel(channels)-1));
+% if strcmp(newstr2(1),'S')
+%     msg = {'QUIT'}; % Create a message to close communication with NIDAQ
+%     [answer handles.input_socketni] = NIDAQ(handles.computeripNIDAQ,handles.portni,msg,handles.input_socketni); % Send the commands
+% else
+%     eval(['values = sum([' newstr ']);'])
+%     binvalues = fliplr(dec2bin(values,numel(channels)));
+%     stat = zeros(numel(channels),1);
+%     for i = 1:numel(channels)
+%         if strcmp(binvalues(i),'1') == 1
+%             stat(i) = 0;
+%         else
+%             stat(i) = 1;
+%         end
+%     end
+%     
+%     set(handles.shutterindic1,'Value',stat(1)); % Show value of the shutter 1 on screen
+%     set(handles.shutterindic2,'Value',stat(2)); % Show value of the shutter 2 on screen
+% end
 
 % --- Executes on slider movement.
 function contrast_Callback(hObject, eventdata, handles)
@@ -3568,3 +3677,76 @@ function fireflysel_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
+
+
+% --- If Enable == 'on', executes on mouse press in 5 pixel border.
+% --- Otherwise, executes on mouse press in 5 pixel border or over goscan.
+function goscan_ButtonDownFcn(hObject, eventdata, handles)
+% hObject    handle to goscan (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --- Executes on key press with focus on goscan and none of its controls.
+function goscan_KeyPressFcn(hObject, eventdata, handles)
+% hObject    handle to goscan (see GCBO)
+% eventdata  structure with the following fields (see MATLAB.UI.CONTROL.UICONTROL)
+%	Key: name of the key that was pressed, in lower case
+%	Character: character interpretation of the key(s) that was pressed
+%	Modifier: name(s) of the modifier key(s) (i.e., control, shift) pressed
+% handles    structure with handles and user data (see GUIDATA)
+
+
+
+function scannum_Callback(hObject, eventdata, handles)
+% hObject    handle to scannum (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of scannum as text
+%        str2double(get(hObject,'String')) returns contents of scannum as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function scannum_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to scannum (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function runnum_Callback(hObject, eventdata, handles)
+% hObject    handle to runnum (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of runnum as text
+%        str2double(get(hObject,'String')) returns contents of runnum as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function runnum_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to runnum (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on button press in pumptoggle.
+function pumptoggle_Callback(hObject, eventdata, handles)
+% hObject    handle to pumptoggle (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of pumptoggle
