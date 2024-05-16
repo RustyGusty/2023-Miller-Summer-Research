@@ -115,6 +115,13 @@ function goscan_Callback(hObject, eventdata, handles)
                     handles.img2list = handles.img1list;
                     set(handles.pumpontxt, 'UserData', handles.img1list);
                     set(handles.pumpofftxt, 'UserData', handles.img1list);
+
+                    % Prepare averages list
+                    avg1list = NaN([size(image), nsteps]);
+                    avg2list = handles.avg1list;
+
+                    % Prepare list of strings
+                    timeslist = cell([1, nsteps]);
                 end
                 
                 % Use loop counter to determine current image type
@@ -154,11 +161,12 @@ function goscan_Callback(hObject, eventdata, handles)
             last_img = str2double(get(handles.imagename, 'String')) - 1;
             stage = get(handles.positiond, 'String');
             time = um_to_fs(stage, 2);
-            compute_avg(handles, [mainpath '1\' time '\'], [handles.root '_' time '_'], ...
+            avg1list(:, :, j) = compute_avg(handles, [mainpath '1\' time '\'], [handles.root '_' time '_'], ...
                 last_img - 1:-2:(last_img - nscans), [mainpath '1\' handles.root '_' time '_avg.tif'] );
-            compute_avg(handles, [mainpath '2\' time '\'], [handles.root '_' time '_'], ...
+            avg2list(:, :, j) = compute_avg(handles, [mainpath '2\' time '\'], [handles.root '_' time '_'], ...
                 last_img:-2:(last_img - nscans + 1), [mainpath '2\' handles.root '_' time '_avg.tif'] );
-            
+            timeslist{j} = um_to_fs(get(handles.positiond, 'String', 2));
+
             % If after image is enabled, take the image
             if afterim_enabled
                 handles.imtype = 'after';
@@ -183,11 +191,22 @@ function goscan_Callback(hObject, eventdata, handles)
                     msg = [msg ' Saving with first image as pump ON'];
                     onpath = [handles.path handles.run '1'];
                     offpath = [handles.path handles.run '2'];
+                    pumponlist = avg1list;
+                    pumpofflist = avg2list;
                 else
                     msg = [msg ' Saving with first image as pump OFF'];
                     onpath = [handles.path handles.run '2'];
                     offpath = [handles.path handles.run '1'];
+                    pumponlist = avg2list;
+                    pumpofflist = avg1list;
                 end
+                % Calculate the difference of each average image
+                diff = pumponlist - pumpofflist;
+                % Save the difference image
+                for i=1:nsteps
+                    imwrite(uint16(diff(:, :, i)), [mainpath 'diff_' timeslist{i} '.tif']);
+                end
+
                 system(['MOVE ' onpath ' ' handles.path handles.run 'Pump_On']);
                 system(['MOVE ' offpath ' ' handles.path handles.run 'Pump_Off']);
                 
