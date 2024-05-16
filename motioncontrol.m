@@ -24,7 +24,7 @@ function varargout = motioncontrol_Daniel(varargin)
 
 % Edit the above text to modify the response to help motioncontrol
 
-% Last Modified by GUIDE v2.5 09-May-2024 17:32:52
+% Last Modified by GUIDE v2.5 10-May-2024 17:04:30
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -501,10 +501,11 @@ set(gcf,'CloseRequestFcn',{@exitmenu_Callback,handles}); % Change the default va
 %right corner, the program first disconnect the server.
 
 handles.path = ['c:\data\' datestr(date,10) '\' datestr(date,5) '\' datestr(date,5) datestr(date,7) datestr(date,11) '\']; % Set the path as "c:\data\yyyy\mm\mmddyy\"
-handles.run = 'Run1\';
+handles.run = ['Run' get(handles.runnum, 'String') '\'];
 handles.root = [datestr(date,5) datestr(date,7) datestr(date,11)]; % Set the root name of the image files as "mmddyy"
 handles.filenumber = []; % Initialize to empty the filenumber array
 %handles.imagesize = [{num2str(handles.fullwidth)} , {num2str(handles.fullheight)}] ; 
+handles.imageisbg = 0;
 
 set(handles.newlogent,'Enable','off'); % Disable new log entry button
 set(handles.takeimage,'Enable','on'); % Enable take image button
@@ -550,10 +551,12 @@ handles.fields_to_toggle = [
         handles.savingpath handles.autosave ... 
         handles.rootname handles.imagename handles.binning ... 
         handles.exposure ... 
-        handles.takeimage ... 
+        handles.takeimage handles. takebg ... 
         handles.closeshutter1 handles.openshutter1 ... 
         handles.closeshutter2 handles.openshutter2 ... 
         ];
+enable_fields(handles);
+set(handles.abortscan, 'Value', 0);
 
 handles.children = get(handles.imageanalysis,'Children'); % Get the handles of the elements of the window imageanalysis
 for i = 1:numel(handles.children)
@@ -585,6 +588,23 @@ for m = 1:numel(hchildrenstatpanel)
     temp3 = get(hchildrenstatpanel(m),'Tag');
     eval(['handles.' temp3 ' = hchildrenstatpanel(' num2str(m) ') ;']);
 end
+
+hchildrenprogresspanel = get(handles.progresspanel, 'Children');
+for m = 1:numel(hchildrenprogresspanel)
+    temp4 = get(hchildrenprogresspanel(m),'Tag');
+    eval(['handles.' temp4 ' = hchildrenstatpanel(' num2str(m) ') ;']);
+end
+
+% Disable UserData from bgsubtract when not scanning
+set(handles.bgsubtract, 'UserData', NaN);
+% Disable the bgsubtract button while no background is loaded
+set(handles.bgsubtract, 'Enable', 'off');
+set(handles.bgsubtract, 'Value', 0);
+% Hide the progress boxes in imageanalysis (NOTE: THIS IS NEVER SHOWN, JUST
+% FOR USERDATA ORGANIZATION)
+set(handles.progresspanel, 'Visible', 'off');
+set(handles.pumpontxt, 'UserData', NaN);
+set(handles.pumpofftxt, 'UserData', NaN);
 
 %handles.idle = 1; % Set idle to 1. It is use in the TmrFcn to updat
 handles.directoryroi = 'C:\Users\lphys\Documents\MATLAB\experimentclient\'; % Set the directory to look for the ROI file
@@ -801,20 +821,21 @@ fclose(handles.filelog); % Close log file
 guidata(hObject, handles) ;
 
 % % --------------------------------------------------------------------
-function previmgname = takeimage_ClickedCallback(hObject, eventdata, handles)
+function curimg = takeimage_ClickedCallback(hObject, eventdata, handles)
 % hObject    handle to takeimage (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-previmgname = 'None';
+curimg = NaN;
 handles.runnumber = get(handles.runnum, 'String'); % Read run number from sscreen
 handles.filenumber = get(handles.imagename,'String'); % Read number of image from screen
 handles.scannumber = get(handles.scannum, 'String'); % Read scan number from screen
+set(handles.filename_posd, 'String', um_to_fs(get(handles.positiond, 'String'), 2));
+
 j = 0;
 if handles.ccd.IsAcquisitionRunning() == 1 % Check if ccd acquisition is running
     pause(0.5)
 
-    
     % NO LONGER USING DAQ TO TRIGGER CCD CAMERA A SPECIFIED NUMBER OF TIMES
     % LOOP STUFF AFTER THAT LOOKS LIKE IT JUST OBTAINS PRUMP AND PROBE
     % POWERS FROM DAQ   
@@ -968,7 +989,7 @@ else % If ccd acquisition is not running
 end
 
 handles.image = image.uint16; % Save image from buffer to handles.image
-
+curimg = handles.image;
 set(handles.filenamelabel,'UserData',handles.image); % Save image in UserData of filenamelabel
 
 
@@ -978,7 +999,10 @@ set(handles.lineprofile,'Enable','on'); % Enable lineprofile button control in i
 set(handles.radialaverage,'Enable','on'); % Enable radial average button control in imageanalysis window
 set(handles.statistic,'Enable','on'); % Enable statistic button control in imageanalysis window
 
-plotdiffraction(handles); % Go to plotdiffraction routine
+% Skip plotting here in case this is the scan routine
+if not(get(handles.goscan, 'Value'))
+    plotdiffraction(handles); % Go to plotdiffraction routine
+end
 set(handles.messages,'String','Waiting...');
 
 imsize = size(handles.image);
@@ -1042,17 +1066,11 @@ else % If autosave is tick
     end
     
     handles.path = get(handles.savingpath,'String'); % Read path from screen
-    mainpath = [handles.path handles.run]; % Create 1 and 2 folders as needed
-    if ( not(exist([mainpath '1\'], 'dir')) )
-        mkdir([mainpath '1']);
-        mkdir([mainpath '2']);
-    end
     
     if isempty(handles.filenumber) % If filename was not set
         warndlg('Please type a proper filename', 'Filename error') % Warning dialog
     else
 
-        set(handles.filenamelabel, 'String', [handles.root '_' handles.filenumber '.tif']); % Show image name on screen
         handle.filenumber = get(handles.imagename,'String'); % Read image number from screen
 
         datalog = get(handles.logtable,'UserData');
@@ -1065,17 +1083,39 @@ else % If autosave is tick
         horizontal = get(handles.positionh,'String'); % Show horizontal position of the sample on the table
         vertical = get(handles.positionv,'String'); % Show vertical position of the sample on the table
         stage = get(handles.positiond,'String'); % Show delay stage position on the table
+        true_time = um_to_fs(str2double(stage));
+        time = num2str(round(true_time, 2));
+        
         current = ' '; % Show current on the table
         exposure = get(handles.exposure,'String'); % Show exposure time on the table
-        image = [handles.root '_' handles.filenumber '.tif']; % Show image name
+        if(handles.imageisbg) % Show image name
+            image = [handles.root '_' handles.filenumber '.tif'];  % If bg, don't include DS
+        else
+            image = [handles.root '_' time '_' handles.filenumber '.tif']; % If not BG, include time
+        end
         notes = ' '; % Show notes to empty String
         
-        newline = {number horizontal vertical stage current exposure image notes}; % Set newline with the values defined above
-        description = sprintf('Number: %s\tHorizontal: %s\tVertical: %s\tStage: %s\tCurrent: %s\tExposure: %s\tImage: %s\tNotes: %s\r\n',number,horizontal,vertical,stage,current,exposure,image,notes);
-        imgfilename = [handles.path handles.run handles.scannumber '\' handles.root '_' handles.filenumber '.tif'];
+        set(handles.filenamelabel, 'String', image); % Show image name on screen
+
+        
+        newline = {number horizontal num2str(true_time) stage current exposure image notes}; % Set newline with the values defined above
+        description = sprintf('Number: %s\tUnused: %s\tTime: %s\tStage: %s\tCurrent: %s\tExposure: %s\tImage: %s\tNotes: %s\r\n',number,horizontal, num2str(true_time),stage,current,exposure,image,notes);
+        if ( get(handles.goscan, 'Value') ) 
+            if( not(exist([handles.path handles.run handles.scannumber '\' time '\'], 'dir')) )
+                system(['mkdir ' handles.path handles.run '1\' time]);
+                system(['mkdir ' handles.path handles.run '2\' time]);
+            end
+            imgfilename = [handles.path handles.run handles.scannumber '\' time '\' ...
+                handles.root '_' time '_' handles.filenumber '.tif'];
+        elseif ( handles.imageisbg ) % If this is a background image
+            exposure = get(handles.exposure, 'String');
+            nacq = get(handles.numberscans, 'String');
+            imgfilename = [handles.path 'bg_exp' exposure 's_nacq' nacq '\' handles.root '_' handles.filenumber '.tif'];
+        else
+            imgfilename = [handles.path handles.root '_' time '_' handles.filenumber '.tif'];
+        end
         imwrite(uint16(handles.image),imgfilename,'Description',description); % Write image in harddrive
         datalog = [datalog ; newline]; % Set datalog to the previous datalog and concatenate new values
-        previmgname = imgfilename;
 
         sizelog = size(datalog);
         if sizelog(1) > 10
@@ -1096,7 +1136,7 @@ else % If autosave is tick
         set(handles.imagename,'String',handles.filenumber); % Show new number on screen
         set(handles.scannum, 'String', handles.scannumber); % Show new number on screen
         handles.filelog = fopen([handles.path handles.root '.log'],'a'); % Open log file to append
-        fprintf(handles.filelog,'%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\r\n',number, horizontal, vertical, stage, current, exposure, image, notes); % Write log
+        fprintf(handles.filelog,'%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\r\n',number, horizontal, time, stage, current, exposure, image, notes); % Write log
         fclose(handles.filelog); % Close log file
         set(handles.logtable,'UserData',datalog);
     end
@@ -1104,6 +1144,70 @@ end
 
 guidata(hObject, handles);
 
+function takebg_ClickedCallback(hObject, eventdata, handles)
+% hObject    handle to takebg (see GCBO)
+
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+if( not(get(handles.autosave, 'Value')) )
+    uiwait(errordlg('Please toggle autosave', 'Autosave Needed', 'modal'));
+    return;
+end
+
+handles.imageisbg = 1;
+exposure = get(handles.exposure, 'String');
+nacq = get(handles.numberscans, 'String');
+path = [handles.path 'bg_exp' exposure 's_nacq' nacq];
+if (exist(path, 'dir')) % If the background image already exists
+    uiwait(errordlg(['Background image with these settings already exists! Delete ' ...
+        path ' to retake the background'],'Image Exists','modal'));
+else
+    disable_fields(handles);
+    system(['mkdir ' path]);
+    nscans = str2double(nacq);
+    for i = 1:nscans
+        if (abortcheck(handles))
+            break;
+        end;
+        set(handles.messages, 'String', ['Taking image ' num2str(i) ' of ' num2str(nscans)]);
+        takeimage_ClickedCallback(hObject, eventdata, handles);
+    end
+    
+    enable_fields(handles);
+    set(handles.abortscan, 'Enable', 'off');
+    
+    if(abortcheck(handles))
+        set(handles.messages, 'String', 'Aborted. Deleting directory');
+        set(handles.abortscan, 'Value', 0);
+        
+        system(['del ' path '\*.tif']);
+        system(['rmdir ' path ]);
+    else
+        set(handles.messages, 'String', 'Background images successfully completed! Computing average');
+        last_img = str2double(get(handles.imagename, 'String')) - 1;
+        nscans = str2double(get(handles.numberscans, 'String'));
+        handles.image = compute_avg(handles, [path '\'], [handles.root '_'], last_img:-1:last_img - nscans + 1, [path '\' handles.root '_avg.tif']);
+        set(handles.filenamelabel, 'String', [handles.root '_avg.tif']);
+        plotdiffraction(handles);
+    end
+end
+
+handles.imageisbg = 0;
+
+guidata(hObject, handles);
+
+function avg_img = compute_avg(handles, src, root, img_indices, dest)
+    % Takes tif files from src, avereages them, and puts them in dest
+    i = 1;
+    temp_img = imread([src root num2str(img_indices(1)) '.tif']);
+    img_list = NaN([size(temp_img) size(img_indices, 2)]);
+    for cur_img = img_indices
+        img_list(:, :, i) = imread([src root num2str(cur_img) '.tif']);
+        i = i + 1;
+    end
+    avg_img = mean(img_list, 3);
+    imwrite(uint16(avg_img), dest);
+    
 % % --------------------------------------------------------------------
 function openshutter1_ClickedCallback(~, ~, handles)
     % hObject    handle to openshutter1 (see GCBO)
@@ -3256,6 +3360,34 @@ function goscan_Callback(hObject, eventdata, handles)
 % hObject    handle to goscan (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+    % Check if autosave enabled
+    if( not(get(handles.autosave, 'Value')) )
+        uiwait(errordlg('Please toggle autosave', 'Autosave Needed', 'modal'));
+        return;
+    end
+    % Check if background exists
+    exposure = get(handles.exposure, 'String');
+    nacq = get(handles.numberscans, 'String');
+    path = [handles.path 'bg_exp' exposure 's_nacq' nacq];
+    if( not(exist([path '\' handles.root '_avg.tif'], 'file')) )
+        uiwait(errordlg('Background image with these parameters not found!', 'Background Missing', 'modal'));
+        return;
+    end
+    
+    mainpath = [handles.path handles.run]; % Create 1 and 2 folders as needed
+    % Move to next free run
+    while ( (exist([mainpath '1\'], 'dir')) )
+        i = num2str(str2double(get(handles.runnum, 'String')) + 1);
+        handles.run = ['Run' i '\'];
+        set(handles.runnum, 'String', i);
+        mainpath = [handles.path handles.run];
+    end
+    mkdir([mainpath '1']);
+    mkdir([mainpath '2']);
+    system(['copy ' path '\' handles.root '_avg.tif ' mainpath 'bg_exp' exposure 's_nacq' nacq '.tif']);
+    set(handles.bgsubtract, 'UserData', imread([mainpath 'bg_exp' exposure 's_nacq' nacq '.tif'])); % Save background filepath to userdata
+    set(handles.bgsubtract, 'Enable', 'on');
+    
     disable_fields(handles);
     uiwait(msgbox('Be ready to check the shutter state for the first scan!'));
     handles.previmg = 'None'; % Used to plot image change over different images
@@ -3292,86 +3424,154 @@ function goscan_Callback(hObject, eventdata, handles)
     % Move to initial position
     set(handles.messages, 'String', 'Moving DS to initial position');
     move_ds(handles, DS_init);
+    
     nscans = str2double(get(handles.numberscans, 'String')) * 2;
     imtot = nsteps * nscans;
     beforeim_enabled = get(handles.beforeim, 'Value');
     afterim_enabled = get(handles.afterim, 'Value');
     scans_per_ds = 1 + beforeim_enabled + afterim_enabled;
     imtot = imtot * scans_per_ds;
+    handles.img1list = NaN; % Begin with null values
+    handles.img2list = NaN;
+    set(handles.pumpontxt, 'UserData', NaN); 
+    set(handles.pumpofftxt, 'UserData', NaN); 
+    
     k = 1;
-    for loop_counter = 1:nscans
+    j = 1;
+    for i = DS_init:step_size:DS_final
         if abortcheck(handles)
             break;
         end
-        j = 1;
-        for i = DS_init:step_size:DS_final
-            set(handles.messages, 'String', ['Beginning step ' num2str(j) ' of ' num2str(nsteps)]);
-            % Move the delay stage to the next position
-            move_ds(handles, i);
-            % Check if abort
-            if abortcheck(handles)
-                break;
-            end
-            % If before image is enabled, take the image
-            if beforeim_enabled
-                handles.imtype = 'before';
-                set(handles.messages, 'String', ['Taking before image (' num2str(k) ' of ' num2str(imtot) ')']); 
-                takeimage_ClickedCallback(hObject, eventdata, handles);
-                %pause(1);
-                k = k + 1;
-            end
-            if abortcheck(handles)
-                break;
-            end
-            for loop_counter = 1:nscans
-            % Take main image
-                handles.imtype = 'main';
-                set(handles.messages, 'String', ['Taking main image (' num2str(loop_counter) ' of ' ...
-                    num2str(nscans) ')']);
-                handles.previmg = takeimage_ClickedCallback(hObject, eventdata, handles);
-                %pause(1);
-                k = k + 1;
-                if abortcheck(handles)
-                    break;
-                end
-            end
-            if abortcheck(handles)
-                break;
-            end
-            % If after image is enabled, take the image
-            if afterim_enabled
-                handles.imtype = 'after';
-                set(handles.messages, 'String', ['Taking after image (' num2str(k) ' of ' num2str(imtot) ')']);
-                takeimage_ClickedCallback(hObject, eventdata, handles);
-                k = k + 1;
-            end
-            j = j + 1;
+        set(handles.messages, 'String', ['Beginning step ' num2str(j) ' of ' num2str(nsteps)]);
+        % Move the delay stage to the next position
+        move_ds(handles, i);
+        % Check if abort
+        if abortcheck(handles)
+            break;
         end
+        % If before image is enabled, take the image
+        if beforeim_enabled
+            handles.imtype = 'before';
+            set(handles.messages, 'String', ['Taking before image (' num2str(k) ' of ' num2str(imtot) ')']); 
+            %takeimage_ClickedCallback(hObject, eventdata, handles);
+            %pause(1);
+            k = k + 1;
+        end
+        if abortcheck(handles)
+            break;
+        end
+        for loop_counter = 1:nscans
+        % Take main image
+            handles.imtype = 'main';
+            set(handles.messages, 'String', ['Taking main image (' num2str(loop_counter) ' of ' ...
+                num2str(nscans) ')']);
+            image = takeimage_ClickedCallback(hObject, eventdata, handles);
+            
+            % If this is the first image, then prepare the matrix list
+            if k == 1
+                handles.img1list = NaN([size(image), nscans / 2]); % make a matrix of nscans/2 slots for images
+                handles.img2list = handles.img1list;
+                set(handles.pumpontxt, 'UserData', handles.img1list);
+                set(handles.pumpofftxt, 'UserData', handles.img1list);
+            end
+            
+            % Use loop counter to determine current image type
+            if mod(loop_counter, 2)
+                % Note: k is the number of images taken
+                handles.img1list(:, :, (k + 1) / 2) = image;
+                handles.image = mean(handles.img1list(:, :, (k + 1) / 2), 3); % Plot average image
+            else
+                handles.img2list(:, :, k / 2) = image;
+                handles.image = mean(handles.img2list(:, :, k /2), 3);
+            end
+            
+            % Check pumptoggle to determine which is pumpon
+            if get(handles.pumptoggle, 'Value') 
+                set(handles.pumpontxt, 'UserData', handles.img1list);
+                set(handles.pumpofftxt, 'UserData', handles.img2list);
+            else
+                set(handles.pumpontxt, 'UserData', handles.img2list);
+                set(handles.pumpofftxt, 'UserData', handles.img1list);
+            end
+            
+            % Plot the current average and the delta image
+            handles.image = uint16(handles.image);
+            plotdiffraction(handles);
+            
+            %pause(1);
+            k = k + 1;
+            if abortcheck(handles)
+                break;
+            end
+        end        
+        
+        if abortcheck(handles)
+            break;
+        end
+        
+        last_img = str2double(get(handles.imagename, 'String')) - 1;
+        stage = get(handles.positiond, 'String');
+        time = um_to_fs(stage, 2);
+        compute_avg(handles, [mainpath '1\' time '\'], [handles.root '_' time '_'], ...
+            last_img - 1:-2:(last_img - nscans), [mainpath '1\' handles.root '_' time '_avg.tif'] );
+        compute_avg(handles, [mainpath '2\' time '\'], [handles.root '_' time '_'], ...
+            last_img:-2:(last_img - nscans + 1), [mainpath '2\' handles.root '_' time '_avg.tif'] );
+        
+        % If after image is enabled, take the image
+        if afterim_enabled
+            handles.imtype = 'after';
+            set(handles.messages, 'String', ['Taking after image (' num2str(k) ' of ' num2str(imtot) ')']);
+            %takeimage_ClickedCallback(hObject, eventdata, handles);
+            k = k + 1;
+        end
+        j = j + 1;
     end
 %   handles.ccd.StopAcquisition(); % Stop acquisition
 
     enable_fields(handles);
-    set(handles.abortscan, 'Enable', 'off');
     set(handles.settemp,'Enable','on'); % Enable set temperature
+    
+    if(abortcheck(handles))
+        set(handles.messages, 'String', 'Aborted');
+        set(handles.abortscan, 'Value', 0);
+    else
+        msg = 'Scan completed!';
+        if(get(handles.autosave, 'Value')) % If autosave is enabled
+            if (get(handles.pumptoggle, 'Value'))
+                msg = [msg ' Saving with first image as pump ON'];
+                onpath = [handles.path handles.run '1'];
+                offpath = [handles.path handles.run '2'];
+            else
+                msg = [msg ' Saving with first image as pump OFF'];
+                onpath = [handles.path handles.run '2'];
+                offpath = [handles.path handles.run '1'];
+            end
+            system(['MOVE ' onpath ' ' handles.path handles.run 'Pump_On']);
+            system(['MOVE ' offpath ' ' handles.path handles.run 'Pump_Off']);
+            
+        end
+        
+        set(handles.messages,'String', msg);
+
+    end
+    
     runnum = str2double(get(handles.runnum, 'String')); % Move runnum to the next available number
     while( exist([handles.path 'Run' num2str(runnum)], 'dir') ) 
         runnum = runnum + 1;
     end
     set(handles.runnum, 'String', num2str(runnum)); 
     handles.run = ['Run' num2str(runnum) '\']; % Update run directory
-    if(abortcheck(handles))
-        set(handles.messages, 'String', 'Aborted');
-        set(handles.abortscan, 'Value', 0);
-    else
-        set(handles.messages,'String','Scan completed!');
-    end
+    handles.previmg = 'None';
+    
+    %set(handles.bgsubtract, 'UserData', NaN);
+    
     guidata(hObject, handles);
 
 function res = abortcheck(handles)
     % ABORTCHECK  Checks if the user wants to abort the scan
     % 
     % handles: handles object
-    % res: 1 if the user wants to abort, 0 otherwise
+    % res: 1 if the user wants to abmotioncontrolort, 0 otherwise
 
     res = 0;
     if get(handles.abortscan, 'Value') == 1
@@ -3410,6 +3610,26 @@ function disable_fields(handles)
     end
     set(handles.abortscan, 'Enable', 'on');
 %     stop(handles.tmr); % Stop timer
+
+function fs = um_to_fs(um, rounding)
+    c = 0.299792458; % Speed of light is 0.3 um/fs
+    
+    % If input argument is a string, convert to a double first 
+    if isa(um, 'char')
+        fs = 2 * str2double(um) / c;
+    else % Otherwise convert as normal
+        fs = 2 * um / c; 
+    end
+    
+    % If rounding is desired
+    if exist('rounding', 'var')
+        fs = round(fs, rounding);
+    end
+    
+    % If input was a string, output should also be a string
+    if isa(um, 'char')
+        fs = num2str(fs);
+    end
 
 % --- Executes on button press in abortscan.
 function abortscan_Callback(hObject, ~, handles)
@@ -3749,4 +3969,32 @@ function pumptoggle_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
+% Swap order of pumpontxt and pumpofftxt
+temp = get(handles.pumpontxt, 'String');
+set(handles.pumpontxt, 'String', get(handles.pumpofftxt, 'String'));
+set(handles.pumpofftxt, 'String', temp);
+
 % Hint: get(hObject,'Value') returns toggle state of pumptoggle
+
+
+
+function filename_posd_Callback(hObject, eventdata, handles)
+% hObject    handle to filename_posd (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of filename_posd as text
+%        str2double(get(hObject,'String')) returns contents of filename_posd as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function filename_posd_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to filename_posd (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end

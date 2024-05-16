@@ -23,7 +23,7 @@ function varargout = imageanalysis(varargin)
 
 % Edit the above text to modify the response to help imageanalysis
 
-% Last Modified by GUIDE v2.5 09-May-2024 14:15:48
+% Last Modified by GUIDE v2.5 10-May-2024 18:42:52
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -72,6 +72,11 @@ handles.a = [];
 handles.b = [];
 set(handles.yscale,'String',[{'linear'} {'log'}]);
 handles.path = ['c:\data\' datestr(date,10) '\' datestr(date,5) '\' datestr(date,5) datestr(date,7) datestr(date,11) '\'];
+
+hchildren = get(handles.progresspanel, 'Children');
+handles.pumpofftxt = hchildren(1);
+handles.pumpontxt = hchildren(2);
+
 
 % Choose default command graph output for imageanalysis
 handles.output = hObject;
@@ -779,3 +784,16 @@ function grayscale_KeyPressFcn(hObject, eventdata, handles)
 %	Character: character interpretation of the key(s) that was pressed
 %	Modifier: name(s) of the modifier key(s) (i.e., control, shift) pressed
 % handles    structure with handles and user data (see GUIDATA)
+
+
+% --- Executes on button press in bgsubtract.
+function bgsubtract_Callback(hObject, eventdata, handles)
+% hObject    handle to bgsubtract (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+handles.image = get(handles.filenamelabel, 'UserData');
+
+plotdiffraction(handles);
+
+% Hint: get(hObject,'Value') returns toggle state of bgsubtract

@@ -10,17 +10,33 @@ function plotdiffraction(handles)
  
 axes(handles.axes1) ;
 
-imagesc(handles.image, [contmin contmax]);
+if( get(handles.bgsubtract, 'Value') ) % If want to enable background subtracting
+    imagesc(handles.image - get(handles.bgsubtract, 'UserData'), [contmin contmax]);
+else
+    imagesc(handles.image, [contmin contmax]);
+end
 
-if( isfield(handles, 'previmg') && not(strcmp(handles.previmg, 'None' )) )
+axes(handles.axes2);
+
+% Check if both pumpontxt and pumpofftxt have filled their first cell to
+% begin subtraction
+pumponlist = get(handles.pumpontxt, 'UserData');
+pumpofflist = get(handles.pumpofftxt, 'UserData');
+if not(isnan(pumponlist(:, :, 1))) & not(isnan(pumpofflist(:, :, 1)))
+    % Set on_i to the first NaN image
+    for on_i = 1:size(pumponlist, 3)
+        if isnan(pumponlist(:, :, on_i))
+            break
+        end
+    end
+    for off_i = 1:size(pumponlist, 3)
+        if isnan(pumpofflist(:, :, off_i))
+            break
+        end
+    end
     
-    previmg = imread(handles.previmg);
-    deltaimg = handles.image - previmg;
-    precision = class(previmg);
-
-    set(handles.axes2,'UserData',1)
+    on_avg = mean(pumponlist(:, :, 1:on_i-1), 3);
+    off_avg = mean(pumpofflist(:, :, 1:off_i-1), 3);
     
-    axes(handles.axes2);
-    imagesc(deltaimg, [contmin contmax]);
-
+    imagesc(on_avg - off_avg, [contmin contmax]);
 end
