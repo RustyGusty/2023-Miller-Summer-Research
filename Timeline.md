@@ -38,4 +38,10 @@ Documentation of the items completed on each day
 ## 2024-05-11
 - Added renaming functionality to the folders to automatically sort the folders based on the user's selection of the radio button
 
+## 2024-05-14
+- Fixed strange interactions with bgsubtract, allowing for clicking the button to immediately enable bgsubtract rather than waiting for the next image to come through
+- Changed um filenames to use fs using the speed of light to convert
+- Changed the log to include the time as well as the stage number (logging true time but saving to 2 decimal places only)
+- 
+
 

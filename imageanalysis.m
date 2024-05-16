@@ -67,9 +67,12 @@ set(handles.axes1,'Box','on');
 set(handles.lineprofile,'Enable','off');
 set(handles.radialaverage,'Enable','off');
 set(handles.statistic,'Enable','off');
+set(handles.maskselect,'Enable','off');
 set(handles.yscale,'Enable','off');
 handles.a = [];
 handles.b = [];
+handles.maska = [];
+handles.maskb = [];
 set(handles.yscale,'String',[{'linear'} {'log'}]);
 handles.path = ['c:\data\' datestr(date,10) '\' datestr(date,5) '\' datestr(date,5) datestr(date,7) datestr(date,11) '\'];
 
@@ -140,6 +143,7 @@ else
     set(handles.lineprofile,'Enable','on');
     set(handles.radialaverage,'Enable','on');
     set(handles.statistic,'Enable','on');
+    set(handles.maskselect,'Enable','on');
 
     set(handles.contmax,'Value',handles.contmaximum)
     set(handles.contmin,'Value',handles.contminimum)
@@ -188,6 +192,23 @@ else
             plotrectangle(handles);
         end
     end
+
+    
+    if ~isempty(get(handles.maskselect,'UserData'))
+        mousecoord = get(handles.maskselect,'UserData'); % Read mouse coordinate from UserData lineprofile
+        if mousecoord(1) > imsize(2) || mousecoord(2) > imsize(2) || mousecoord(3) > imsize(1) || mousecoord(4) > imsize(1)
+            smallimage = 'true';
+        else
+            smallimage = 'false';
+        end
+        if strcmp(smallimage,'true') == 1
+            set(handles.maskselect,'State','off');
+            mask_OffCallback(hObject,eventdata,guidata(hObject))
+        else
+            plotmask(handles);
+        end
+    end
+
     set(handles.autoplot,'UserData',imsize);
 end
 
@@ -326,6 +347,7 @@ plotdiffraction(handles);
 
 handles = plotrectangle(handles);
 
+
 guidata(hObject, handles);
 
 
@@ -441,6 +463,10 @@ if ~isempty(get(handles.statistic,'UserData'))
     plotrectangle(handles);
 end
 
+if ~isempty(get(handles.maskselect, 'UserData'))
+    plotmask(handles);
+end
+
 guidata(hObject, handles);
 
 
@@ -494,6 +520,10 @@ end
 
 if ~isempty(get(handles.statistic,'UserData'))
     plotrectangle(handles);
+end
+
+if ~isempty(get(handles.maskselect, 'UserData'))
+    plotmask(handles);
 end
 
 guidata(hObject, handles);
@@ -674,6 +704,10 @@ if ~isempty(get(handles.statistic,'UserData'))
     plotrectangle(handles);
 end
 
+if ~isempty(get(handles.maskselect, 'UserData'))
+    plotmask(handles);
+end
+
 
 % --- Executes on button press in autoplot.
 function autoplot_Callback(hObject, eventdata, handles)
@@ -797,3 +831,55 @@ handles.image = get(handles.filenamelabel, 'UserData');
 plotdiffraction(handles);
 
 % Hint: get(hObject,'Value') returns toggle state of bgsubtract
+
+function mask_ClickedCallback(hObject, eventdata, handles)
+    % hObject    handle to statistic (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
+    % --------------------------------------------------------------------
+function mask_OnCallback(hObject, eventdata, handles)
+% hObject    handle to statistic (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+[handles.maska handles.maskb handles.maskbutton] = ginputc(2,'LineWidth',1,'Color',[1 0 0],'ShowPoints',true,'ConnectPoints',true);
+
+% if isfield(handles,'image') == 0
+%     handles.image = get(handles.filenamelabel,'UserData');
+% end
+
+child = get(get(handles.axes1,'Children'));
+handles.image = child.CData;
+
+plotdiffraction(handles);
+
+if ~isempty(get(handles.statistic,'UserData'))
+    handles = plotrectangle(handles);
+end
+
+handles = plotmask(handles);
+
+guidata(hObject, handles);
+
+
+% --------------------------------------------------------------------
+function mask_OffCallback(hObject, eventdata, handles)
+% hObject    handle to statistic (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+set(handles.maskselect,'UserData',[]);
+
+hchildren = get(handles.axes1,'Children');
+
+for i = 1:length(hchildren)
+    if strcmp(get(hchildren(i),'Type'),'image') ~= 1
+        delete(hchildren(i))
+    end
+end
+
+set(handles.smin,'String','');
+set(handles.smax,'String','');
+set(handles.smean,'String','');
+set(handles.sstd,'String','');

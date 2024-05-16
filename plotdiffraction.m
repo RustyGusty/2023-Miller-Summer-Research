@@ -15,6 +15,7 @@ if( get(handles.bgsubtract, 'Value') ) % If want to enable background subtractin
 end    
 imagesc(handles.image, [contmin contmax]);
 
+plotmask(handles); % Replot mask
 plotrectangle(handles); % Reset statistic with desired background subtraction
 
 axes(handles.axes2);
