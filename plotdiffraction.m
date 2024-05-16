@@ -11,10 +11,11 @@ function plotdiffraction(handles)
 axes(handles.axes1) ;
 
 if( get(handles.bgsubtract, 'Value') ) % If want to enable background subtracting
-    imagesc(handles.image - get(handles.bgsubtract, 'UserData'), [contmin contmax]);
-else
-    imagesc(handles.image, [contmin contmax]);
-end
+    handles.image = handles.image - get(handles.bgsubtract, 'UserData');
+end    
+imagesc(handles.image, [contmin contmax]);
+
+plotrectangle(handles); % Reset statistic with desired background subtraction
 
 axes(handles.axes2);
 
