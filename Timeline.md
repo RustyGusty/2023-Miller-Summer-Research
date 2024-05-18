@@ -42,6 +42,17 @@ Documentation of the items completed on each day
 - Fixed strange interactions with bgsubtract, allowing for clicking the button to immediately enable bgsubtract rather than waiting for the next image to come through
 - Changed um filenames to use fs using the speed of light to convert
 - Changed the log to include the time as well as the stage number (logging true time but saving to 2 decimal places only)
-- 
+- Changed plotting in imageanalysis to plot running average of the current stage position, same thing for the delta image also
 
+## 2024-05-15
+- Implemented saving the overall image average difference to the primary folder
+- Fixed statistic to keep bgsubtract information over different instances of plotdiffraction
+- Added masking feature to black out regions similar to statistic (needs testing)
+- Obtained ReadSPE to read in diffraction data for radial analysis
 
+## 2024-05-17
+- Rewrote imageanalysis statistic and mask to properly handles multiple rectangles being drawn at once
+- Fixed incorrect calls to ginputc through helper function get_coords forcing axes1 to be active
+- Rewrote plotrectangle and plotmask to use UserData instead of handle variables to ensure correct functionality with calls from motioncontrol
+- Fixed statistic to correctly ignore masked output when calculating statistics
+- Sent in prayers to ensure things work properly

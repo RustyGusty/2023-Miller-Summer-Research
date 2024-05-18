@@ -43,9 +43,8 @@ function goscan_Callback(hObject, eventdata, handles)
     %             pause(2);
     %         else
     %         end
-    %     end
-    
-        DS_init = str2double(get(handles.scanstartd, 'String')) / 1000; % Convert um to mm for the server
+    %     end        
+        DS_init = str2double(get(handles.scanstartd, 'String')) / 1000;   
         step_size = str2double(get(handles.scanstepd, 'String')) / 1000; % Convert um to mm for the server
         nsteps = str2double(get(handles.nstepd, 'String'));
         DS_final = DS_init + step_size * (nsteps - 1); % Calculate the final position
@@ -286,8 +285,7 @@ function goscan_Callback(hObject, eventdata, handles)
         if exist('rounding', 'var')
             fs = round(fs, rounding);
         end
-        
-        % If input was a string, output should also be a string
-        if isa(um, 'char')
-            fs = num2str(fs);
-        end
+    
+    function um = fs_to_um(fs)
+        c = 0.299792458; % Speed of light is 0.3 um/fs
+        um = c * fs / 2; % Convert to um

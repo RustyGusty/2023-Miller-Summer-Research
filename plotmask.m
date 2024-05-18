@@ -1,11 +1,11 @@
 function handles = plotmask(handles)
 
-xin = min(round(handles.maska(1)),round(handles.maska(2)));
-xfin = max(round(handles.maska(1)),round(handles.maska(2)));
-yin = min(round(handles.maskb(1)),round(handles.maskb(2)));
-yfin = max(round(handles.maskb(1)),round(handles.maskb(2)));
-
-axes(handles.axes1) ;
-handles.maskrectangle = rectangle('Position',[xin yin xfin-xin yfin-yin], 'EdgeColor','r', 'FaceColor', 'k', 'LineWidth',1);
-
-set(handles.maskselect,'UserData',[xin, xfin, yin, yfin]);
+coords = get(handles.maskselect, 'UserData');
+if ~isempty(coords)
+    xin = coords(1, 1);
+    xfin = coords(2, 1);
+    yin = coords(1, 2);
+    yfin = coords(2, 2);
+    axes(handles.axes1);
+    handles.maskrectangle = rectangle('Position',[xin yin xfin-xin yfin-yin], 'EdgeColor','r', 'FaceColor', 'k', 'LineWidth',1);
+end

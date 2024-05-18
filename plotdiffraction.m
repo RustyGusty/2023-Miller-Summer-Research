@@ -1,4 +1,7 @@
-function plotdiffraction(handles)
+function handles = plotdiffraction(handles)
+if(isempty(handles.image))
+    return;
+end
 
  if get(handles.autoscale,'Value')
      contmin = uint16(min(handles.image(:))) ;
@@ -10,9 +13,36 @@ function plotdiffraction(handles)
  
 axes(handles.axes1) ;
 
+onprogress = str2double(get(handles.onprogress, 'String'));
+offprogress = str2double(get(handles.offprogress, 'String'));
+ispumpon = get(handles.onindicator, 'Value');
+
 if( get(handles.bgsubtract, 'Value') ) % If want to enable background subtracting
-    handles.image = handles.image - get(handles.bgsubtract, 'UserData');
-end    
+    if( get(handles.bgavg, 'Value')) % If want to subtract the running average
+       nimage = max(onprogress, offprogress);
+       pumpbglist = get(handles.pumpongeneric, 'UserData'); % List of all pump background images
+       bglist = get(handles.bgavg, 'UserData'); % list of all background images
+       pumpbgimg = mean(pumpbglist(:, :, 1:nimage), 3);
+       bgimg = mean(bglist(:, :, 1:nimage), 3);
+    else
+       bgimg = get(handles.bgsubtract, 'UserData'); % average image
+       pumpbgimg = bgimg(:, :, 2); % If pump on, get pumpbg
+       bgimg = bgimg(:, :, 1);
+    end
+    
+    bgimg = uint16(bgimg);
+    pumpbgimg = uint16(bgimg);
+    % Here, bgimg is the generic bgimg, and pumpbgimg is the pump bgimg
+    if ispumpon
+       if get(handles.pumpongeneric, 'Value')
+           handles.image = handles.image - bgimg; % Additional subtraction of generic
+       end
+       handles.image = handles.image - pumpbgimg;
+    else
+        handles.image = handles.image - bgimg;
+    end
+end
+
 imagesc(handles.image, [contmin contmax]);
 
 plotmask(handles); % Replot mask
@@ -42,3 +72,4 @@ if not(isnan(pumponlist(:, :, 1))) & not(isnan(pumpofflist(:, :, 1)))
     
     imagesc(on_avg - off_avg, [contmin contmax]);
 end
+

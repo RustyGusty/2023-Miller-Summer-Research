@@ -23,7 +23,7 @@ function varargout = imageanalysis(varargin)
 
 % Edit the above text to modify the response to help imageanalysis
 
-% Last Modified by GUIDE v2.5 10-May-2024 18:42:52
+% Last Modified by GUIDE v2.5 16-May-2024 16:18:52
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -80,6 +80,20 @@ hchildren = get(handles.progresspanel, 'Children');
 handles.pumpofftxt = hchildren(1);
 handles.pumpontxt = hchildren(2);
 
+hchildren = get(handles.scanindicatorpanel, 'Children');
+handles.onindicator = hchildren(1);
+handles.offindicator = hchildren(2);
+
+set(handles.bgsubtract, 'Enable', 'off');
+set(handles.bgavg, 'Enable', 'off');
+set(handles.pumpongeneric, 'Enable', 'off');
+set(handles.bgsubtract, 'Value', 0);
+set(handles.bgavg, 'Value', 0);
+set(handles.pumpongeneric, 'Value', 1);
+set(handles.progresspanel, 'Visible', 'off');
+
+set(handles.statistic, 'UserData', []);
+set(handles.maskselect, 'UserData', []);
 
 % Choose default command graph output for imageanalysis
 handles.output = hObject;
@@ -116,6 +130,7 @@ if isequal(file,0) || isequal(path,0)
 else
     
     handles.image = imread(filename);
+    handles.image = uint16(handles.image);
     precision = class(handles.image);
 
     switch precision
@@ -334,19 +349,23 @@ function statistic_OnCallback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-[handles.a handles.b handles.button] = ginputc(2,'LineWidth',1,'Color',[1 0 0],'ShowPoints',true,'ConnectPoints',true);
+coords = get_coords(handles);
+if isempty(coords)
+    set(handles.statistic, 'State', 'off');
+    statistic_OffCallback(hObject, eventdata, handles);
+    return;
+end
+set(handles.statistic, 'UserData', coords); % Store coordinates into UserData of statistic
 
 % if isfield(handles,'image') == 0
 %     handles.image = get(handles.filenamelabel,'UserData');
 % end
 
-child = get(get(handles.axes1,'Children'));
-handles.image = child.CData;
+handles.image = getaxesimg(handles.axes1);
 
-plotdiffraction(handles);
+handles = plotdiffraction(handles);
 
-handles = plotrectangle(handles);
-
+%handles = plotrectangle(handles);
 
 guidata(hObject, handles);
 
@@ -359,18 +378,14 @@ function statistic_OffCallback(hObject, eventdata, handles)
 
 set(handles.statistic,'UserData',[]);
 
-hchildren = get(handles.axes1,'Children');
-
-for i = 1:length(hchildren)
-    if strcmp(get(hchildren(i),'Type'),'image') ~= 1
-        delete(hchildren(i))
-    end
-end
+plotdiffraction(handles);
 
 set(handles.smin,'String','');
 set(handles.smax,'String','');
 set(handles.smean,'String','');
 set(handles.sstd,'String','');
+
+guidata(hObject, handles);
 
 % --- Executes during object creation, after setting all properties.
 function smin_CreateFcn(hObject, eventdata, handles)
@@ -843,22 +858,21 @@ function mask_OnCallback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-[handles.maska handles.maskb handles.maskbutton] = ginputc(2,'LineWidth',1,'Color',[1 0 0],'ShowPoints',true,'ConnectPoints',true);
+coords = get_coords(handles);
+if isempty(coords)
+    set(handles.maskselect, 'State', 'off');
+    mask_OffCallback(hObject, eventdata, handles);
+    return;
+end
+set(handles.maskselect, 'UserData', coords); % Store coordinates into UserData of maskselect
 
 % if isfield(handles,'image') == 0
 %     handles.image = get(handles.filenamelabel,'UserData');
 % end
 
-child = get(get(handles.axes1,'Children'));
-handles.image = child.CData;
+handles.image = getaxesimg(handles.axes1);
 
-plotdiffraction(handles);
-
-if ~isempty(get(handles.statistic,'UserData'))
-    handles = plotrectangle(handles);
-end
-
-handles = plotmask(handles);
+handles = plotdiffraction(handles);
 
 guidata(hObject, handles);
 
@@ -871,15 +885,160 @@ function mask_OffCallback(hObject, eventdata, handles)
 
 set(handles.maskselect,'UserData',[]);
 
-hchildren = get(handles.axes1,'Children');
+plotdiffraction(handles);
 
-for i = 1:length(hchildren)
-    if strcmp(get(hchildren(i),'Type'),'image') ~= 1
-        delete(hchildren(i))
-    end
+% --- Executes on button press in bgavg.
+function bgavg_Callback(hObject, eventdata, handles)
+% hObject    handle to bgavg (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+child = get(get(handles.axes1,'Children'));
+handles.image = child.CData;
+
+plotdiffraction(handles);
+
+% Hint: get(hObject,'Value') returns toggle state of bgavg
+
+
+% --- Executes on button press imagenain pumpongeneric.
+function pumpongeneric_Callback(hObject, eventdata, handles)
+% hObject    handle to pumpongeneric (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of pumpongeneric
+child = get(get(handles.axes1,'Children'));
+handles.image = child.CData;
+
+plotdiffraction(handles);
+
+% --- Executes on button press in onindicator.
+function onindicator_Callback(hObject, eventdata, handles)
+% hObject    handle to onindicator (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of onindicator
+
+
+% --- Executes on button press in offindicator.
+function offindicator_Callback(hObject, eventdata, handles)
+% hObject    handle to offindicator (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of offindicator
+
+
+
+function onprogress_Callback(hObject, eventdata, handles)
+% hObject    handle to onprogress (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of onprogress as text
+%        str2double(get(hObject,'String')) returns contents of onprogress as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function onprogress_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to onprogress (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
 end
 
-set(handles.smin,'String','');
-set(handles.smax,'String','');
-set(handles.smean,'String','');
-set(handles.sstd,'String','');
+
+
+function offprogress_Callback(hObject, eventdata, handles)
+% hObject    handle to offprogress (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of offprogress as text
+%        str2double(get(hObject,'String')) returns contents of offprogress as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function offprogress_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to offprogress (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function ontotal_Callback(hObject, eventdata, handles)
+% hObject    handle to ontotal (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of ontotal as text
+%        str2double(get(hObject,'String')) returns contents of ontotal as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function ontotal_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to ontotal (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function offtotal_Callback(hObject, eventdata, handles)
+% hObject    handle to offtotal (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of offtotal as text
+%        str2double(get(hObject,'String')) returns contents of offtotal as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function offtotal_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to offtotal (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+function coords = get_coords(handles)
+    set(handles.statistic, 'Enable', 'off');
+    set(handles.maskselect, 'Enable', 'off');
+    axes(handles.axes1);
+    [x, y, ~, ax] = ginputc(2, 'LineWidth', 1, 'Color', [1 0 0], 'ShowPoints', true, 'ConnectPoints', true);
+    if ax ~= handles.axes1
+        coords = [];
+    else
+        coords = round(sort([x, y], 1)); % Sort x and y coordinates in ascending order
+    end
+    set(handles.statistic, 'Enable', 'on');
+    set(handles.maskselect, 'Enable', 'on');
+
+function img = getaxesimg(axes)
+    hchildren = get(axes, 'Children');
+    for i = 1:length(hchildren)
+        if strcmp(get(hchildren(i), 'Type'), 'image')
+            img = get(hchildren(i), 'CData');
+            break;
+        end
+    end
