@@ -3453,9 +3453,10 @@ function goscan_Callback(hObject, eventdata, handles)
     mkdir([mainpath '2']);
     system(['copy ' path '\' handles.root '_avg.tif ' mainpath 'bg_exp' exposure 's_nacq' nacq '.tif']);
     system(['copy ' pumppath '\' handles.root '_avg.tif ' mainpath 'pumpbg_exp' exposure 's_nacq' nacq '.tif']);
+    set(handles.bg, 'String', ['Background Settings: ' handles.run 'bg_exp' exposure 's_nacq' nacq]);
 
     disable_fields(handles);
-    handles.previmg = 'None'; % Used to plot image change over different images
+    handles.previmg = 'None'; % Used to plot image change over different images % UNUSED
     % Enable ccd acquisition if not already running
 %     pause(0.1)
 %     if handles.ccd.IsAcquisitionRunning() == 1 % Check if acquisition is running
@@ -3535,6 +3536,8 @@ function goscan_Callback(hObject, eventdata, handles)
     set(handles.onprogress, 'String', '0');
     set(handles.offprogress, 'String', '0');
     set(handles.progresspanel, 'Visible', 'on');
+
+    guidata(hObject, handles);
     
     uiwait(msgbox('Be ready to check the shutter state for the first scan!'));
     k = 1;

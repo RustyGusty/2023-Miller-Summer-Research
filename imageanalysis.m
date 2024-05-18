@@ -23,7 +23,7 @@ function varargout = imageanalysis(varargin)
 
 % Edit the above text to modify the response to help imageanalysis
 
-% Last Modified by GUIDE v2.5 16-May-2024 16:18:52
+% Last Modified by GUIDE v2.5 18-May-2024 15:08:52
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -94,6 +94,8 @@ set(handles.progresspanel, 'Visible', 'off');
 
 set(handles.statistic, 'UserData', []);
 set(handles.maskselect, 'UserData', []);
+
+set(handles.bgsettings, 'String', 'No background available');
 
 % Choose default command graph output for imageanalysis
 handles.output = hObject;
