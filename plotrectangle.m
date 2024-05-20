@@ -11,7 +11,7 @@ if ~isempty(coords)
     axes(handles.axes1) ;
     handles.rectangle = rectangle('Position',[xin yin xfin-xin yfin-yin], 'EdgeColor','r','LineWidth',1);
     
-    statmat = handles.image;
+    statmat = double(handles.image);
     
     % If mask has been enabled, ignore those pixels
     maskcoords = get(handles.maskselect, 'UserData');
@@ -27,5 +27,5 @@ if ~isempty(coords)
     set(handles.smin,'String',num2str(min(resstatmat),'%5.0f'));
     set(handles.smax,'String',num2str(max(resstatmat),'%5.0f'));
     set(handles.smean,'String',num2str(mean(resstatmat, 'omitnan'),'%5.0f'));
-    set(handles.sstd,'String',num2str(std(double(resstatmat), 'omitnan'),'%5.0f'));
+    set(handles.sstd,'String',num2str(std(resstatmat, 'omitnan'),'%5.0f'));
 end

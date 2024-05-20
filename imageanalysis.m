@@ -87,7 +87,7 @@ handles.offindicator = hchildren(2);
 set(handles.bgsubtract, 'Enable', 'off');
 set(handles.bgavg, 'Enable', 'off');
 set(handles.pumpongeneric, 'Enable', 'off');
-set(handles.bgsubtract, 'Value', 0);
+set(handles.bgsubtract, 'Value', 1);
 set(handles.bgavg, 'Value', 0);
 set(handles.pumpongeneric, 'Value', 1);
 set(handles.progresspanel, 'Visible', 'off');
@@ -232,6 +232,17 @@ end
 % set(handles.autoplot,'UserData',imsize);
 
 guidata(hObject, handles);
+
+% --------------------------------------------------------------------
+function openbg_ClickedCallback(hObject, eventdata, handles)
+% hObject    handle to open (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+[file,path] = uigetfile('*.tif','Open file name',handles.path);
+filename = [path file];
+handles.path = path;
+
 
 % --------------------------------------------------------------------
 function lineprofile_ClickedCallback(hObject, eventdata, handles)

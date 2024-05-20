@@ -48,7 +48,7 @@ Documentation of the items completed on each day
 - Implemented saving the overall image average difference to the primary folder
 - Fixed statistic to keep bgsubtract information over different instances of plotdiffraction
 - Added masking feature to black out regions similar to statistic (needs testing)
-- Obtained ReadSPE to read in diffraction data for radial analysis
+- Obtained readSPE to read in diffraction data for radial analysis
 
 ## 2024-05-17
 - Rewrote imageanalysis statistic and mask to properly handles multiple rectangles being drawn at once
@@ -56,3 +56,10 @@ Documentation of the items completed on each day
 - Rewrote plotrectangle and plotmask to use UserData instead of handle variables to ensure correct functionality with calls from motioncontrol
 - Fixed statistic to correctly ignore masked output when calculating statistics
 - Sent in prayers to ensure things work properly
+
+## 2024-05-18
+- Added textbox to show current settings of run in imageanalysis for background stuff
+- Fixed mask issue: uint16(NaN) = 0, so changed plotrectangle to work in doubles instead of uints
+- Various bug fixes (loading wrong image for pumpon subtraction, not resetting progress counters for different stage positions, not saving the correct images)
+- Combining the pump off and pump on background taking into one function to reduce redundancy
+- Additional dialogue boxes for new reminders following in person testing

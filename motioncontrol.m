@@ -530,7 +530,7 @@ set(handles.fullchip,'Enable','off'); % Disable fullchip radio button
 set(handles.slidertable,'Visible','off'); % Make table slider invisible
 set(handles.numberscans, 'Enable', 'on'); % Enable number of scans dialogue
 
-if( not(isnumeric(get(handles.numberscans, 'String'))) )
+if( isnan(str2double(get(handles.numberscans, 'String'))) )
     set(handles.numberscans, 'String', 1);
     set(handles.scanstartd, 'String', 0);
     set(handles.scanstepd, 'String', 1000);
@@ -555,11 +555,12 @@ handles.fields_to_toggle = [
         handles.savingpath handles.autosave ... 
         handles.rootname handles.imagename handles.binning ... 
         handles.exposure ... 
-        handles.takeimage handles.takebg handles.takepumpbg ... 
+        handles.takeimage handles.takepumpbg ... 
         handles.closeshutter1 handles.openshutter1 ... 
         handles.closeshutter2 handles.openshutter2 ... 
         ];
 enable_fields(handles);
+set(handles.takebg, 'Enable', 'off');
 set(handles.abortscan, 'Value', 0);
 
 handles.children = get(handles.imageanalysis,'Children'); % Get the handles of the elements of the window imageanalysis
@@ -606,7 +607,7 @@ for m = 1:numel(hchildrenindicatorpanel)
 end
 
 % Disable UserData from bgsubtract when not scanning
-set(handles.bgsubtract, 'UserData', NaN);
+set(handles.bgsubtract, 'UserData', []);
 set(handles.pumpontxt, 'UserData', NaN);
 set(handles.pumpofftxt, 'UserData', NaN);
 
@@ -1104,7 +1105,7 @@ else % If autosave is tick
         
         newline = {number horizontal num2str(true_time) stage current exposure image notes}; % Set newline with the values defined above
         description = sprintf('Number: %s\tUnused: %s\tTime: %s\tStage: %s\tCurrent: %s\tExposure: %s\tImage: %s\tNotes: %s\r\n',number,horizontal, num2str(true_time),stage,current,exposure,image,notes);
-        if ( get(handles.goscan, 'Value') ) 
+        if ( get(handles.goscan, 'Value')) 
             if( not(exist([handles.path handles.run handles.scannumber '\' time '\'], 'dir')) )
                 system(['mkdir ' handles.path handles.run '1\' time]);
                 system(['mkdir ' handles.path handles.run '2\' time]);
@@ -1112,13 +1113,12 @@ else % If autosave is tick
             imgfilename = [handles.path handles.run handles.scannumber '\' time '\' ...
                 handles.root '_' time '_' handles.filenumber '.tif'];
         elseif ( handles.imageisbg ) % If this is a background image
-            exposure = get(handles.exposure, 'String');
-            nacq = get(handles.numberscans, 'String');
-            if handles.imageispump
-                imgfilename = [handles.path 'pumpbg_exp' exposure 's_nacq' nacq '\' handles.root '_' handles.filenumber '.tif'];
-            else
-                imgfilename = [handles.path 'bg_exp' exposure 's_nacq' nacq '\' handles.root '_' handles.filenumber '.tif'];
+            if( not(exist([handles.bgpath '\1\'], 'dir')) )
+                system(['mkdir ' handles.bgpath '\1\']);
+                system(['mkdir ' handles.bgpath '\2\']);
             end
+            imgfilename = [handles.bgpath '\' handles.scannumber '\' ...
+                handles.root '_' handles.filenumber '.tif'];
         else
             imgfilename = [handles.path handles.root '_' time '_' handles.filenumber '.tif'];
         end
@@ -1213,48 +1213,92 @@ if( not(get(handles.autosave, 'Value')) )
     uiwait(errordlg('Please toggle autosave', 'Autosave Needed', 'modal'));
     return;
 end
-
 handles.imageisbg = 1;
-handles.imageispump = 1;
 exposure = get(handles.exposure, 'String');
 nacq = get(handles.numberscans, 'String');
-path = [handles.path 'pumpbg_exp' exposure 's_nacq' nacq];
+path = [handles.path 'bg_exp' exposure 's_nacq' nacq];
 if (exist(path, 'dir')) % If the background image already exists
     uiwait(errordlg(['Background image with these settings already exists! Delete ' ...
         path ' to retake the background'],'Image Exists','modal'));
 else
     disable_fields(handles);
-    system(['mkdir ' path]);
-    nscans = str2double(nacq);
+    mkdir([path '\1']);
+    mkdir([path '\2']);
+    handles.bgpath = path;
+    nscans = str2double(nacq) * 2;
+    
+    uiwait(msgbox('BLOCK ELECTRON BEAM! Be ready to check the shutter state for the first scan!'));
+    set(handles.pumpontxt, 'UserData', NaN); 
+    set(handles.pumpofftxt, 'UserData', NaN); 
+    set(handles.ontotal, 'String', num2str(nscans / 2));
+    set(handles.offtotal, 'String', num2str(nscans / 2));
+    set(handles.onprogress, 'String', '0');
+    set(handles.offprogress, 'String', '0');
+    set(handles.progresspanel, 'Visible', 'on');
+    set(handles.scannum, 'String', '1');
+    set(handles.abortscan, 'Enable', 'off');
+    
+    set(handles.bgsubtract, 'UserData', []);
+    set(handles.bgavg, 'UserData', []);
+    set(handles.pumpongeneric, 'UserData', []);
+    set(handles.pumpontxt, 'UserData', NaN);
+    set(handles.pumpofftxt, 'UserData', NaN);
+    
     for i = 1:nscans
         if (abortcheck(handles))
             break;
         end;
         set(handles.messages, 'String', ['Taking image ' num2str(i) ' of ' num2str(nscans)]);
         takeimage_ClickedCallback(hObject, eventdata, handles);
+
+            % Update the scan indicators in imageanalysis
+            ispumpon = mod(i, 2) == (get(handles.pumptoggle, 'Value'));
+            set(handles.onindicator, 'Value', ispumpon)
+            set(handles.offindicator, 'Value', not(ispumpon));
+            if ispumpon
+                set(handles.onprogress, 'String', num2str(str2double(get(handles.onprogress, 'String')) + 1));
+            else
+                set(handles.offprogress, 'String', num2str(str2double(get(handles.offprogress, 'String')) + 1));
+            end
     end
     
     enable_fields(handles);
-    set(handles.abortscan, 'Enable', 'off');
     
     if(abortcheck(handles))
         set(handles.messages, 'String', 'Aborted. Deleting directory');
         set(handles.abortscan, 'Value', 0);
         
-        system(['del ' path '\*.tif']);
-        system(['rmdir ' path ]);motio
+        system(['del ' path '\1\*.tif']);
+        system(['del ' path '\2\*.tif']);
+        system(['rmdir ' path '\1\']);
+        system(['rmdir ' path '\2\']);
+        system(['rmdir ' path ]);
     else
         set(handles.messages, 'String', 'Background images successfully completed! Computing average');
-        last_img = str2double(get(handles.imagename, 'String')) - 1;
+        last_img = str2double(get(handles.imagename, 'String')) - 1; % Image 2
         nscans = str2double(get(handles.numberscans, 'String'));
-        handles.image = compute_avg(handles, [path '\'], [handles.root '_'], last_img:-1:last_img - nscans + 1, [path '\' handles.root '_avg.tif']);
-        set(handles.filenamelabel, 'String', [handles.root '_avg.tif']);
+        if get(handles.pumptoggle, 'Value') % If first scan was pump on:
+            handles.image = compute_avg(handles, [path '\1\'], [handles.root '_'], last_img-1:-2:last_img - 2 * nscans, [path '\' handles.root '_pumpavg.tif']);
+            generic_img = compute_avg(handles, [path '\2\'], [handles.root '_'], last_img:-2:last_img - 2 * nscans + 1, [path '\' handles.root '_avg.tif']);
+            onpath = [path '\1\'];
+            offpath = [path '\2\'];
+        else
+            handles.image = compute_avg(handles, [path '\2\'], [handles.root '_'], last_img:-2:last_img - 2 * nscans + 1, [path '\' handles.root '_pumpavg.tif']);
+            generic_img = compute_avg(handles, [path '\1\'], [handles.root '_'], last_img-1:-2:last_img - 2 * nscans, [path '\' handles.root '_avg.tif']);
+            onpath = [path '\2'];
+            offpath = [path '\1'];
+        end
+        system(['MOVE ' onpath ' ' path '\Pump_On']);
+        system(['MOVE ' offpath ' ' path '\Pump_Off']);
+        
+        set(handles.filenamelabel, 'String', [handles.root '_pumpavg.tif']);
         plotdiffraction(handles);
     end
+    
+    
 end
 
 handles.imageisbg = 0;
-handles.imageispump = 0;
 
 guidata(hObject, handles);
 
@@ -3435,8 +3479,7 @@ function goscan_Callback(hObject, eventdata, handles)
         uiwait(errordlg('Background image with these parameters not found!', 'Background Missing', 'modal'));
         return;
     end
-    pumppath = [handles.path 'pumpbg_exp' exposure 's_nacq' nacq];
-    if( not(exist([pumppath '\' handles.root '_avg.tif'], 'file')) )
+    if( not(exist([path '\' handles.root '_pumpavg.tif'], 'file')) )
         uiwait(errordlg('Pump background image with these parameters not found!', 'Background Missing', 'modal'));
         return;
     end
@@ -3452,8 +3495,8 @@ function goscan_Callback(hObject, eventdata, handles)
     mkdir([mainpath '1']);
     mkdir([mainpath '2']);
     system(['copy ' path '\' handles.root '_avg.tif ' mainpath 'bg_exp' exposure 's_nacq' nacq '.tif']);
-    system(['copy ' pumppath '\' handles.root '_avg.tif ' mainpath 'pumpbg_exp' exposure 's_nacq' nacq '.tif']);
-    set(handles.bg, 'String', ['Background Settings: ' handles.run 'bg_exp' exposure 's_nacq' nacq]);
+    system(['copy ' path '\' handles.root '_pumpavg.tif ' mainpath 'pumpbg_exp' exposure 's_nacq' nacq '.tif']);
+    %set(handles.bg, 'String', ['Background Settings: ' handles.run 'bg_exp' exposure 's_nacq' nacq]);
 
     disable_fields(handles);
     handles.previmg = 'None'; % Used to plot image change over different images % UNUSED
@@ -3496,23 +3539,22 @@ function goscan_Callback(hObject, eventdata, handles)
     
     bglist = NaN([size(bgavg), nimages]);
     startimg = 1;
-    while ~exist([path '\' handles.root '_' num2str(startimg) '.tif'], 'file')
+    while ~exist([path '\Pump_Off\' handles.root '_' num2str(startimg) '.tif'], 'file')
         startimg = startimg + 1;
     end
     for i=1:nimages
-       bglist(:, :, i) = imread([path '\' handles.root '_' num2str(startimg + i - 1) '.tif']);
+       bglist(:, :, i) = imread([path '\Pump_Off\' handles.root '_' num2str(startimg + (i - 1) * 2) '.tif']);
     end
     set(handles.bgavg, 'UserData', bglist);
-    set(handles.bgsubtract, 'Enable', 'on');
     set(handles.bgavg, 'Enable', 'on');
     % Import all pump background images
     bglist = NaN([size(bgavg), nimages]);
     startimg = 1;
-    while ~exist([pumppath '\' handles.root '_' num2str(startimg) '.tif'], 'file')
+    while ~exist([path '\Pump_On\' handles.root '_' num2str(startimg) '.tif'], 'file')
         startimg = startimg + 1;
     end
     for i=1:nimages
-       bglist(:, :, i) = imread([pumppath '\' handles.root '_' num2str(startimg + i - 1) '.tif']);
+       bglist(:, :, i) = imread([path '\Pump_On\' handles.root '_' num2str(startimg + (i - 1) * 2) '.tif']);
     end
     set(handles.pumpongeneric, 'UserData', bglist);
     set(handles.pumpongeneric, 'Enable', 'on');
@@ -3536,10 +3578,9 @@ function goscan_Callback(hObject, eventdata, handles)
     set(handles.onprogress, 'String', '0');
     set(handles.offprogress, 'String', '0');
     set(handles.progresspanel, 'Visible', 'on');
-
-    guidata(hObject, handles);
+    set(handles.scannum, 'String', '1');
     
-    uiwait(msgbox('Be ready to check the shutter state for the first scan!'));
+    uiwait(msgbox('REMOVE ELECTRON BEAM BLOCKER! Be ready to check the shutter state for the first scan!'));
     k = 1;
     j = 1;
     for i = DS_init:step_size:DS_final
@@ -3547,6 +3588,8 @@ function goscan_Callback(hObject, eventdata, handles)
             break;
         end
         set(handles.messages, 'String', ['Beginning step ' num2str(j) ' of ' num2str(nsteps)]);
+        set(handles.onprogress, 'String', '0');
+        set(handles.offprogress, 'String', '0');
         % Move the delay stage to the next position
         move_ds(handles, i);
         % Check if abort
@@ -3698,7 +3741,7 @@ function goscan_Callback(hObject, eventdata, handles)
     handles.run = ['Run' num2str(runnum) '\']; % Update run directory
     handles.previmg = 'None';
     
-    %set(handles.bgsubtract, 'UserData', NaN);
+    %set(handles.bgsubtract, 'UserData', []);
     set(handles.progresspanel, 'Visible', 'off');
     guidata(hObject, handles);
 
