@@ -608,8 +608,8 @@ end
 
 % Disable UserData from bgsubtract when not scanning
 set(handles.bgsubtract, 'UserData', []);
-set(handles.pumpontxt, 'UserData', NaN);
-set(handles.pumpofftxt, 'UserData', NaN);
+set(handles.pumpontxt, 'UserData', []);
+set(handles.pumpofftxt, 'UserData', []);
 
 %handles.idle = 1; % Set idle to 1. It is use in the TmrFcn to updat
 handles.directoryroi = 'C:\Users\lphys\Documents\MATLAB\experimentclient\'; % Set the directory to look for the ROI file
@@ -1228,8 +1228,8 @@ else
     nscans = str2double(nacq) * 2;
     
     uiwait(msgbox('BLOCK ELECTRON BEAM! Be ready to check the shutter state for the first scan!'));
-    set(handles.pumpontxt, 'UserData', NaN); 
-    set(handles.pumpofftxt, 'UserData', NaN); 
+    set(handles.pumpontxt, 'UserData', []); 
+    set(handles.pumpofftxt, 'UserData', []); 
     set(handles.ontotal, 'String', num2str(nscans / 2));
     set(handles.offtotal, 'String', num2str(nscans / 2));
     set(handles.onprogress, 'String', '0');
@@ -1241,8 +1241,8 @@ else
     set(handles.bgsubtract, 'UserData', []);
     set(handles.bgavg, 'UserData', []);
     set(handles.pumpongeneric, 'UserData', []);
-    set(handles.pumpontxt, 'UserData', NaN);
-    set(handles.pumpofftxt, 'UserData', NaN);
+    set(handles.pumpontxt, 'UserData', []);
+    set(handles.pumpofftxt, 'UserData', []);
     
     for i = 1:nscans
         if (abortcheck(handles))
@@ -3579,6 +3579,11 @@ function goscan_Callback(hObject, eventdata, handles)
     set(handles.offprogress, 'String', '0');
     set(handles.progresspanel, 'Visible', 'on');
     set(handles.scannum, 'String', '1');
+    set(handles.onindicator, 'Enable', 'off');
+    set(handles.offindicator, 'Enable', 'off');
+    set(handles.bgavg, 'Enable', 'on');
+    set(handles.bgavg, 'Value', 1);
+    
     
     uiwait(msgbox('REMOVE ELECTRON BEAM BLOCKER! Be ready to check the shutter state for the first scan!'));
     k = 1;
@@ -3661,6 +3666,7 @@ function goscan_Callback(hObject, eventdata, handles)
            
             % Plot the current average and the delta image
             handles.image = uint16(handles.image);
+            set(handles.filenamelabel, 'UserData', handles.image);
             plotdiffraction(handles);
             
             

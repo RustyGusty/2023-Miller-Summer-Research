@@ -86,16 +86,18 @@ handles.offindicator = hchildren(2);
 
 set(handles.bgsubtract, 'Enable', 'off');
 set(handles.bgavg, 'Enable', 'off');
-set(handles.pumpongeneric, 'Enable', 'off');
+set(handles.pumpongeneric, 'Enable', 'on');
 set(handles.bgsubtract, 'Value', 1);
 set(handles.bgavg, 'Value', 0);
-set(handles.pumpongeneric, 'Value', 1);
+set(handles.pumpongeneric, 'Value', 0);
 set(handles.progresspanel, 'Visible', 'off');
 
 set(handles.statistic, 'UserData', []);
 set(handles.maskselect, 'UserData', []);
 
 set(handles.bgsettings, 'String', 'No background available');
+
+handles.image = [];
 
 % Choose default command graph output for imageanalysis
 handles.output = hObject;
@@ -169,6 +171,7 @@ else
 
     plotdiffraction(handles);
     set(handles.filenamelabel,'String',file);
+    set(handles.filenamelabel, 'UserData', handles.image);
 
     imsize = size(handles.image);
     if ~isempty(get(handles.lineprofile,'UserData'))
@@ -243,6 +246,58 @@ function openbg_ClickedCallback(hObject, eventdata, handles)
 filename = [path file];
 handles.path = path;
 
+if isequal(file,0) || isequal(path,0)
+
+else
+    % Filename must be formatted as: root_bg_exp{%d}s_nacq{%d}.tif or root_pumpbg_exp{%d}s_nacq{%d}.tif
+    % Look for if bg_exp exists in the filename
+    if strfind(file, 'bg_exp')
+        % if avg exists in the filename, then it is not from a run but the bg itself
+        if strfind(file, 'avg')
+            % if pumpavg exsits in the filename, then it is a pumpavg file
+            if strfind(file, 'pumpavg')
+                pumpbgpath = filename;
+                bgpath = strrep(filename, 'pumpavg', 'avg');
+            else
+                bgpath = filename;
+                pumpbgpath = strrep(filename, 'avg', 'pumpavg');
+            end
+        % Otherwise, it's in the runs.
+        % If pumpbg exists in the filename, then it is a pumpbg file
+        elseif strfind(file, 'pumpbg')
+            pumpbgpath = filename;
+            bgpath = strrep(filename, 'pumpbg', 'bg');
+        else
+            bgpath = filename;
+            pumpbgpath = strrep(filename, 'bg', 'pumpbg');
+        end
+
+        % If pumpbg exists in the filename, then it is a pumpbg file
+        
+        bg = uint16(imread(bgpath));
+        pumpbg = uint16(imread(pumpbgpath));
+
+        % Load bg files into userdatas
+        bglist = NaN([size(bg) 2]);
+        bglist(:,:,1) = bg;
+        bglist(:,:,2) = pumpbg;
+        set(handles.bgsubtract, 'UserData', bglist);
+        set(handles.bgsettings, 'String', ['BG: ' file]);
+
+        % Enable scanindicatorpanel radio buttons
+        set(handles.onindicator, 'Enable', 'on');
+        set(handles.offindicator, 'Enable', 'on');
+        % Enable bgsubtract button
+        set(handles.bgsubtract, 'Enable', 'on');
+
+        plotdiffraction(handles);
+    else
+        % Warning: file is not a valid background file
+        uiwait(errordlg('File is not a valid background file', 'Error'));
+    end
+end
+
+
 
 % --------------------------------------------------------------------
 function lineprofile_ClickedCallback(hObject, eventdata, handles)
@@ -265,8 +320,7 @@ function lineprofile_OnCallback(hObject, eventdata, handles)
 %     handles.image = child.CData;
 % end
 
-child = get(get(handles.axes1,'Children'));
-handles.image = child.CData;
+handles.image = get(handles.filenamelabel, 'UserData');
 
 % plotdiffraction(handles);
 
@@ -645,8 +699,6 @@ end
 
 plotdiffraction(handles);
 
-guidata(hObject, handles);
-
 % --- Executes during object creation, after setting all properties.
 function maxnumstr_CreateFcn(hObject, eventdata, handles)
 % hObject    handle to maxnumstr (see GCBO)
@@ -858,6 +910,8 @@ handles.image = get(handles.filenamelabel, 'UserData');
 
 plotdiffraction(handles);
 
+guidata(hObject, handles);
+
 % Hint: get(hObject,'Value') returns toggle state of bgsubtract
 
 function mask_ClickedCallback(hObject, eventdata, handles)
@@ -883,7 +937,7 @@ set(handles.maskselect, 'UserData', coords); % Store coordinates into UserData o
 %     handles.image = get(handles.filenamelabel,'UserData');
 % end
 
-handles.image = getaxesimg(handles.axes1);
+handles.image = get(handles.filenamelabel, 'UserData');
 
 handles = plotdiffraction(handles);
 
@@ -905,8 +959,7 @@ function bgavg_Callback(hObject, eventdata, handles)
 % hObject    handle to bgavg (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-child = get(get(handles.axes1,'Children'));
-handles.image = child.CData;
+handles.image = get(handles.filenamelabel, 'UserData');
 
 plotdiffraction(handles);
 
@@ -920,8 +973,7 @@ function pumpongeneric_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 % Hint: get(hObject,'Value') returns toggle state of pumpongeneric
-child = get(get(handles.axes1,'Children'));
-handles.image = child.CData;
+handles.image = get(handles.filenamelabel, 'UserData');
 
 plotdiffraction(handles);
 
@@ -930,6 +982,7 @@ function onindicator_Callback(hObject, eventdata, handles)
 % hObject    handle to onindicator (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+plotdiffraction(handles);
 
 % Hint: get(hObject,'Value') returns toggle state of onindicator
 
@@ -939,6 +992,7 @@ function offindicator_Callback(hObject, eventdata, handles)
 % hObject    handle to offindicator (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+plotdiffraction(handles);
 
 % Hint: get(hObject,'Value') returns toggle state of offindicator
 

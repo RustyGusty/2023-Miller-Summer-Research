@@ -3,8 +3,6 @@ if(isempty(handles.image))
     return;
 end
 
-img = handles.image;
-
 axes(handles.axes1) ;
 
 onprogress = str2double(get(handles.onprogress, 'String'));
@@ -16,30 +14,38 @@ if get(handles.bgsubtract, 'Value') && not(isempty(get(handles.bgsubtract, 'User
        nimage = max(onprogress, offprogress);
        pumpbglist = get(handles.pumpongeneric, 'UserData'); % List of all pump background images
        bglist = get(handles.bgavg, 'UserData'); % list of all background images
-       pumpbghandles.image = mean(pumpbglist(:, :, 1:nimage), 3);
-       bghandles.image = mean(bglist(:, :, 1:nimage), 3);
+       if not(isempty(pumpbglist) || isempty(bglist)) % Failsafe in case the individual lists don't exist
+            pumpbgimg = mean(pumpbglist(:, :, 1:nimage), 3);
+            bgimg = mean(bglist(:, :, 1:nimage), 3);
+       else
+              bgimg = get(handles.bgsubtract, 'UserData'); % average image
+              pumpbgimg = bgimg(:, :, 2); % If pump on, get pumpbg
+              bgimg = bgimg(:, :, 1);
+       end
     else
-       bghandles.image = get(handles.bgsubtract, 'UserData'); % average image
-       pumpbghandles.image = bghandles.image(:, :, 2); % If pump on, get pumpbg
-       bghandles.image = bghandles.image(:, :, 1);
+       bgimg = get(handles.bgsubtract, 'UserData'); % average image
+       pumpbgimg = bgimg(:, :, 2); % If pump on, get pumpbg
+       bgimg = bgimg(:, :, 1);
     end
     
-    bghandles.image = uint16(bghandles.image);
-    pumpbghandles.image = uint16(pumpbghandles.image);
-    % Here, bghandles.image is the generic bghandles.image, and pumpbghandles.image is the pump bghandles.image
+    bgimg = uint16(bgimg);
+    pumpbgimg = uint16(pumpbgimg);
+    % Here, bgimg is the generic bgimg, and pumpbgimg is the pump bgimg
     if ispumpon
        if get(handles.pumpongeneric, 'Value')
-           handles.image = handles.image - bghandles.image; % Additional subtraction of generic
+           handles.image = handles.image - bgimg; % Additional subtraction of generic
        end
-       handles.image = handles.image - pumpbghandles.image;
+       handles.image = handles.image - pumpbgimg;
     else
-        handles.image = handles.image - bghandles.image;
+        handles.image = handles.image - bgimg;
     end
 end
 
  if get(handles.autoscale,'Value')
      contmin = uint16(min(handles.image(:))) ;
      contmax = uint16(max(handles.image(:))) ;
+     set(handles.contmin,'Value',contmin);
+     set(handles.contmax,'Value',contmax);
  else
      contmin = uint16(get(handles.contmin,'Value')) ;
      contmax = uint16(get(handles.contmax,'Value')) ;
@@ -60,7 +66,7 @@ axes(handles.axes2);
 % begin subtraction
 pumponlist = get(handles.pumpontxt, 'UserData');
 pumpofflist = get(handles.pumpofftxt, 'UserData');
-if not(isnan(pumponlist(:, :, 1))) & not(isnan(pumpofflist(:, :, 1)))
+if not(isempty(pumponlist)) && not(isempty(pumpofflist))
     % Set on_i to the first NaN image
     for on_i = 1:size(pumponlist, 3)
         if isnan(pumponlist(:, :, on_i))
@@ -83,4 +89,3 @@ if not(isnan(pumponlist(:, :, 1))) & not(isnan(pumpofflist(:, :, 1)))
     end
     imagesc(on_avg - off_avg, [contmin contmax]);
 end
-

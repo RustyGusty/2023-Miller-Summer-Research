@@ -63,3 +63,8 @@ Documentation of the items completed on each day
 - Various bug fixes (loading wrong image for pumpon subtraction, not resetting progress counters for different stage positions, not saving the correct images)
 - Combining the pump off and pump on background taking into one function to reduce redundancy
 - Additional dialogue boxes for new reminders following in person testing
+
+## 2024-05-19
+- Replacing all NaN arguments with empty lists to allow using Matlab2015's isempty instead of isnan, since the 'all' option doesn't exist yet
+- Fixed imageanalysis background subtraction (using stored userdata for handles.image when pressing buttons instead of getting the axes data, and also updating the stored userdata when plotting new images with additional calls to guidata)
+- Added additional functionality to manually select background images and to display the currently active display image
